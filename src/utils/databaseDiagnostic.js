@@ -1,6 +1,6 @@
 // Database Connection Diagnostic Tool
 
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 import connectionMonitor from './connectionMonitor';
 
 class DatabaseDiagnostic {

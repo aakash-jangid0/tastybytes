@@ -1,7 +1,7 @@
 // Utility function to safely get current user data
 // Use this instead of directly accessing auth.users
 
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export interface UserProfile {
   id: string;

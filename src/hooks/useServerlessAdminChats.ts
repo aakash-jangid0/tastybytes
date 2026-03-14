@@ -14,7 +14,7 @@ export interface AdminChat {
   messages: Array<{
     id: string;
     sender_id: string;
-    sender_type: 'customer' | 'admin'; // Add sender_type field
+    sender_type: 'customer' | 'admin' | 'ai'; // Add sender_type field
     content: string; // Changed from 'message' to 'content' to match database
     sent_at: string;
     read: boolean;
@@ -49,7 +49,7 @@ export function useServerlessAdminChats() {
       toast.success('New support request received!');
     },
     onUpdate: (updatedChat) => {
-      setChats(prev => prev.map(chat => 
+      setChats(prev => prev.map(chat =>
         chat.id === updatedChat.id ? updatedChat : chat
       ));
     },
@@ -145,7 +145,7 @@ export function useServerlessAdminChats() {
         (payload) => {
           console.log('📨 Admin: Real-time message received:', payload.new);
           const newMessage = payload.new;
-          
+
           console.log('🔍 Admin: Message details:', {
             id: newMessage.id,
             sender_type: newMessage.sender_type,
@@ -153,11 +153,11 @@ export function useServerlessAdminChats() {
             content: newMessage.content,
             chat_id: newMessage.chat_id
           });
-          
+
           // Only process customer messages (admin messages are handled optimistically)
           if (newMessage.sender_type === 'customer') {
             console.log('👤 Admin: Adding customer message to chat');
-            
+
             setChats(prev => prev.map(chat => {
               if (chat.id === newMessage.chat_id) {
                 // Check if message already exists to prevent duplicates
@@ -166,11 +166,11 @@ export function useServerlessAdminChats() {
                   console.log('⚠️ Admin: Message already exists, skipping');
                   return chat;
                 }
-                
+
                 console.log('✅ Admin: Adding new customer message');
                 return {
                   ...chat,
-                  messages: [...(chat.messages || []), newMessage],
+                  messages: [...(chat.messages || []), newMessage as AdminChat['messages'][number]],
                   last_message_at: newMessage.sent_at
                 };
               }
@@ -295,7 +295,7 @@ export function useServerlessAdminChats() {
         if (chat.id === chatId) {
           return {
             ...chat,
-            messages: chat.messages.map(msg => 
+            messages: chat.messages.map(msg =>
               msg.id === optimisticId ? newMessage : msg
             )
           };
@@ -346,9 +346,9 @@ export function useServerlessAdminChats() {
 
       if (error) throw error;
 
-      setChats(prev => prev.map(chat => 
-        chat.id === chatId 
-          ? { ...chat, status: 'resolved' } 
+      setChats(prev => prev.map(chat =>
+        chat.id === chatId
+          ? { ...chat, status: 'resolved' }
           : chat
       ));
 

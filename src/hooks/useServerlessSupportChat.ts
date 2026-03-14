@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 // Types
 export interface Message {
@@ -8,7 +8,7 @@ export interface Message {
   sender_id: string;
   content: string;
   sent_at: string;
-  sender_type: 'customer' | 'admin';
+  sender_type: 'customer' | 'admin' | 'ai';
   read?: boolean;
 }
 
@@ -19,6 +19,7 @@ export interface SupportChat {
   category?: string;
   issue?: string;
   status: 'active' | 'closed' | 'resolved';
+  is_ai_active?: boolean;
   last_message_at: string;
   customer_details?: {
     name: string;
@@ -50,31 +51,31 @@ export function useSupportChat(orderId: string, customerId: string) {
       console.log('🔍 Loading chat for:', { orderId, customerId });
 
       const response = await fetch(`${NETLIFY_FUNCTION_URL}/support-chat?customerId=${customerId}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log('📦 Chat data received:', data);
-      
+
       // Ensure data is an array before calling .find()
       const chats = Array.isArray(data) ? data : [];
-      
+
       const chat = chats.find((c: SupportChat) => c.order_id === orderId);
       console.log('🎯 Found chat for order:', chat);
-      
+
       if (chat) {
         setChatId(chat.id);
         setCurrentChat(chat);
-        
+
         // Load messages for this chat
         const { data: messages, error } = await supabase
           .from('chat_messages')
           .select('*')
           .eq('chat_id', chat.id)
           .order('sent_at', { ascending: true });
-        
+
         if (error) throw error;
         console.log('💬 Messages loaded:', messages);
         setMessages(messages || []);
@@ -137,7 +138,7 @@ export function useSupportChat(orderId: string, customerId: string) {
 
       const result = await response.json();
       console.log('✅ Send message result:', result);
-      
+
       if (!result.success) {
         // Remove optimistic message on error
         setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
@@ -156,7 +157,7 @@ export function useSupportChat(orderId: string, customerId: string) {
         });
         // Replace optimistic message with real message from server
         setMessages(prev => {
-          const updated = prev.map(msg => 
+          const updated = prev.map(msg =>
             msg.id === optimisticId ? result.message : msg
           );
           console.log('📝 Messages after replacement:', updated.length);
@@ -176,7 +177,7 @@ export function useSupportChat(orderId: string, customerId: string) {
   // Mark messages as read
   const markMessagesAsRead = useCallback(async () => {
     if (!chatId) return;
-    
+
     try {
       await supabase
         .from('chat_messages')
@@ -204,7 +205,7 @@ export function useSupportChat(orderId: string, customerId: string) {
         console.error('❌ Supabase connection error:', error);
       }
     };
-    
+
     testRealtimeConnection();
   }, []);
 
@@ -230,7 +231,7 @@ export function useSupportChat(orderId: string, customerId: string) {
         (payload) => {
           console.log('📨 Real-time message received:', payload.new);
           const newMessage = payload.new as Message;
-          
+
           console.log('🔍 Message details:', {
             id: newMessage.id,
             sender_type: newMessage.sender_type,
@@ -238,7 +239,7 @@ export function useSupportChat(orderId: string, customerId: string) {
             content: newMessage.content,
             chat_id: newMessage.chat_id
           });
-          
+
           // Add admin messages immediately, don't add customer messages (handled optimistically)
           if (newMessage.sender_type === 'admin') {
             console.log('👨‍💼 Adding admin message to customer chat');
@@ -286,7 +287,7 @@ export function useSupportChat(orderId: string, customerId: string) {
         (payload) => {
           console.log('📊 Chat status updated:', payload.new);
           const updatedChat = payload.new as SupportChat;
-          
+
           if (updatedChat.status !== currentChat?.status) {
             console.log('🔄 Chat status changed from', currentChat?.status, 'to', updatedChat.status);
             setCurrentChat(prev => prev ? { ...prev, status: updatedChat.status } : null);

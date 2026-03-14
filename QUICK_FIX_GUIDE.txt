@@ -1,0 +1,81 @@
+# 🚀 Quick Fix Deployment Guide
+
+## Two Issues Fixed ✅
+
+### 1. Multiple Supabase Client Instances
+- **Error**: `Multiple GoTrueClient instances detected...`
+- **Fixed**: Consolidated all imports to use single `src/lib/supabase.ts`
+- **Files Updated**: 8 files
+
+### 2. Missing Storage Bucket
+- **Error**: `Storage bucket 'website-assets' does not exist`
+- **Fixed**: Created migration to create bucket with RLS policies
+- **Migration**: `20250910_create_storage_buckets.sql`
+
+---
+
+## Deploy in 5 Minutes
+
+### Step 1: Push Migration to Supabase
+```bash
+npx supabase db push
+```
+
+### Step 2: Create Storage Bucket (Manual)
+1. Go to Supabase Dashboard → Storage
+2. Click "Create a new bucket"
+3. Name: `website-assets`
+4. Toggle to Public
+5. Click "Create bucket"
+
+### Step 3: Hard Refresh Browser
+```
+Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+```
+
+### Step 4: Verify It's Fixed
+Open DevTools Console → Should NOT see these errors:
+- ❌ `Multiple GoTrueClient instances detected`
+- ❌ `Storage bucket 'website-assets' does not exist`
+
+---
+
+## What Changed
+
+✅ **Code changes**: 8 files updated to import from `src/lib/supabase.ts` only  
+✅ **Database**: Migration added to create `website-assets` bucket  
+✅ **No breaking changes**: All functionality preserved
+
+---
+
+## Still Having Issues?
+
+If errors persist after deployment:
+
+1. **Clear everything**:
+   - DevTools → Application → Clear storage
+   - Restart browser
+   - Hard refresh page
+
+2. **Check migration applied**:
+   - Supabase Dashboard → SQL Editor
+   - Run: `SELECT * FROM storage.buckets WHERE name = 'website-assets';`
+   - Should return one row
+
+3. **Check imports consolidated**:
+   - Search codebase for `from '../supabaseClient'`
+   - Should return 0 results (use `../lib/supabase` instead)
+
+---
+
+## Full Documentation
+
+See these files for complete details:
+- 📄 [CONSOLE_ERRORS_FIX.md](CONSOLE_ERRORS_FIX.md) - Detailed breakdown
+- 📄 [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) - Full checklist
+- 📄 [AI_CHAT_FIX_SUMMARY.md](AI_CHAT_FIX_SUMMARY.md) - AI chat setup
+
+---
+
+**Time to fix**: ~5 minutes  
+**No downtime**: Changes are backward compatible

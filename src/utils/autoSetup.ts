@@ -7,7 +7,7 @@
  * Run this ONCE after deployment to set everything up automatically.
  */
 
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 const MIGRATION_QUERIES = [
   // First, run the main customer table migration
