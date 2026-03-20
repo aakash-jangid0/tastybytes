@@ -1,7 +1,7 @@
 import { loadScript } from '../utils/loadScript';
 import { RazorpayResponse } from '../types/payment';
 
-const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_OjVlCpSLytdwMx';
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 declare global {

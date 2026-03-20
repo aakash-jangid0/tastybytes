@@ -26,6 +26,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Claude Code config
+.claude/
+
 # Environment variables
 .env
 server/.env
