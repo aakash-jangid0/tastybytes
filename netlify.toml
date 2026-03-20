@@ -1,0 +1,9 @@
+[build]
+  publish = "dist"
+
+[build.environment]
+  # The Supabase anon key is designed to be public and is intentionally
+  # embedded in the client bundle via VITE_SUPABASE_ANON_KEY.
+  # The non-prefixed duplicates (SUPABASE_ANON_KEY, SUPABASE_URL) trigger
+  # the secrets scanner because their values match the inlined VITE_ versions.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_ANON_KEY,SUPABASE_URL"
