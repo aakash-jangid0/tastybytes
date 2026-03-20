@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, User, Mail, Phone, MapPin } from 'lucide-react';
+import { X, Upload, User, Mail, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface StaffFormProps {
@@ -22,12 +22,8 @@ function StaffForm({
     full_name: '',
     email: '',
     phone: '',
-    address: '',
     role: 'server',
     department: 'service',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    emergency_contact_relation: '',
     profile_photo_url: ''
   });
 
@@ -37,12 +33,8 @@ function StaffForm({
         full_name: initialData.full_name || '',
         email: initialData.email || '',
         phone: initialData.phone || '',
-        address: initialData.address || '',
         role: initialData.role || 'server',
         department: initialData.department || 'service',
-        emergency_contact_name: initialData.emergency_contact_name || '',
-        emergency_contact_phone: initialData.emergency_contact_phone || '',
-        emergency_contact_relation: initialData.emergency_contact_relation || '',
         profile_photo_url: initialData.profile_photo_url || ''
       });
     }
@@ -50,19 +42,15 @@ function StaffForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       await onSubmit(formData);
       setFormData({
         full_name: '',
         email: '',
         phone: '',
-        address: '',
         role: 'server',
         department: 'service',
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
-        emergency_contact_relation: '',
         profile_photo_url: ''
       });
     } catch (error) {
@@ -151,20 +139,6 @@ function StaffForm({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Address
-                </label>
-                <div className="mt-1 relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -203,48 +177,6 @@ function StaffForm({
                   <option value="management">Management</option>
                   <option value="accounts">Accounts</option>
                 </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Emergency Contact */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Emergency Contact</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Contact Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.emergency_contact_name}
-                  onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.emergency_contact_phone}
-                  onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Relationship
-                </label>
-                <input
-                  type="text"
-                  value={formData.emergency_contact_relation}
-                  onChange={(e) => setFormData({ ...formData, emergency_contact_relation: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                />
               </div>
             </div>
           </div>

@@ -20,7 +20,8 @@ function Menu() {
     setQuickCategory,
     filters,
     setFilters,
-    filteredItems
+    filteredItems,
+    menuItems
   } = useMenuFilters();
 
   return (
@@ -35,7 +36,7 @@ function Menu() {
 
         <div className="container mx-auto px-4 py-6">
           <CategorySelector
-            categories={Array.from(new Set(filteredItems.map(item => item.category)))}
+            categories={Array.from(new Set(menuItems.map(item => item.category)))}
             selectedCategory={quickCategory}
             onSelectCategory={setQuickCategory}
           />

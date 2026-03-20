@@ -4,11 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireAdmin?: boolean;
+  requiredRole?: 'admin' | 'kitchen' | 'counter' | 'customer';
 }
 
-function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+  const { user, role, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -23,10 +23,8 @@ function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps)
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  // For now, we'll consider any user an admin since we haven't implemented roles
-  if (requireAdmin) {
-    // Implement your admin check logic here
-    return children;
+  if (requiredRole && role !== requiredRole && role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

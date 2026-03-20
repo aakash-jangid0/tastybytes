@@ -1,3 +1,6 @@
+# VSCode MCP config (contains secrets)
+.vscode/mcp.json
+
 # Logs
 logs
 *.log

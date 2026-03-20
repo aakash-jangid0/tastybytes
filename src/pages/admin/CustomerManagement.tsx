@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, User, Download, ChevronDown, X, Plus, List, Grid, Tag, Coins, Calendar } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import CustomerCard from '../../components/admin/admin/CustomerCard';
-import CustomerTable from '../../components/admin/admin/CustomerTable';
-import CustomerStats from '../../components/admin/admin/CustomerStats';
-import CustomerAnalytics from '../../components/admin/admin/CustomerAnalytics';
-import CustomerDetailView from '../../components/admin/admin/CustomerDetailView';
+import CustomerCard from '../../components/admin/customers/CustomerCard';
+import CustomerTable from '../../components/admin/customers/CustomerTable';
+import CustomerStats from '../../components/admin/customers/CustomerStats';
+import CustomerAnalytics from '../../components/admin/customers/CustomerAnalytics';
+import CustomerDetailView from '../../components/admin/customers/CustomerDetailView';
 import { Customer, CustomerStats as CustomerStatsType } from '../../types/Customer';
 
 export default function CustomerManagement() {
@@ -35,7 +35,6 @@ export default function CustomerManagement() {
     phone: '',
     address: '',
     notes: '',
-    status: 'active'
   });
     const [stats, setStats] = useState<CustomerStatsType>({
     totalCustomers: 0,
@@ -60,37 +59,36 @@ export default function CustomerManagement() {
         console.error('Supabase error details:', error);
         throw error;
       }
-      
-      // If no data was returned, try creating the table with sample data
-      if (!data || data.length === 0) {
-        await createCustomersTable();
-        const { data: newData, error: newError } = await supabase
-          .from('customers')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (newError) throw newError;
-        
-        if (newData && newData.length > 0) {
-          const customersWithTags = newData.map(customer => ({
-            ...customer,
-            tags: generateRandomTags(customer)
-          }));
-          
-          setCustomers(customersWithTags);
-          calculateStats(customersWithTags);
-        } else {
-          setError("Could not create customer data. Please check your database connection.");
-          setCustomers([]);
+
+      // Compute total_orders and total_spent from orders table
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('customer_id, total_amount')
+        .eq('status', 'completed');
+
+      const orderStats: Record<string, { total_orders: number; total_spent: number }> = {};
+      (ordersData || []).forEach(order => {
+        if (!order.customer_id) return;
+        if (!orderStats[order.customer_id]) {
+          orderStats[order.customer_id] = { total_orders: 0, total_spent: 0 };
         }
+        orderStats[order.customer_id].total_orders += 1;
+        orderStats[order.customer_id].total_spent += order.total_amount || 0;
+      });
+
+      const customerList = (data || []).map(customer => ({
+        ...customer,
+        total_orders: orderStats[customer.id]?.total_orders ?? 0,
+        total_spent: orderStats[customer.id]?.total_spent ?? 0,
+        tags: customer.tags || generateRandomTags(customer)
+      }));
+
+      if (customerList.length === 0) {
+        setError(null);
+        setCustomers([]);
       } else {
-        const customersWithTags = data.map(customer => ({
-          ...customer,
-          tags: customer.tags || generateRandomTags(customer)
-        }));
-        
-        setCustomers(customersWithTags);
-        calculateStats(customersWithTags);
+        setCustomers(customerList);
+        calculateStats(customerList);
       }
     } catch (error: unknown) {
       console.error('Error in customer handling:', error);
@@ -150,9 +148,6 @@ export default function CustomerManagement() {
             phone: '1234567890',
             address: '123 Main St',
             created_at: new Date().toISOString(),
-            last_visit: new Date().toISOString(),
-            total_orders: 5,
-            total_spent: 2500,
             status: 'active'
           },
           {
@@ -161,9 +156,6 @@ export default function CustomerManagement() {
             phone: '9876543210',
             address: '456 Oak St',
             created_at: new Date().toISOString(),
-            last_visit: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            total_orders: 3,
-            total_spent: 1800,
             status: 'active'
           },
           {
@@ -172,9 +164,6 @@ export default function CustomerManagement() {
             phone: '5551234567',
             address: '789 Pine St',
             created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            last_visit: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-            total_orders: 8,
-            total_spent: 4200,
             status: 'active'
           }
         ]);
@@ -193,22 +182,11 @@ export default function CustomerManagement() {
       }
     }
   };
-    // Generate random tags for demo purposes (in a real app, these would come from the database)
-  const generateRandomTags = (customer: Customer): string[] => {
+    const generateRandomTags = (customer: Customer): string[] => {
     const allTags = ['VIP', 'Regular', 'New', 'Vegetarian', 'Vegan', 'Discount', 'Birthday', 'Corporate', 'Event'];
-    const customerTags: string[] = [];
-    
-    // Base tag on status
-    if (customer.status === 'active') {
-      customerTags.push(customer.total_orders > 10 ? 'Regular' : 'New');
-    }
-    
-    // Add random additional tag
+    const customerTags: string[] = [customer.total_orders > 10 ? 'Regular' : 'New'];
     const randomTag = allTags[Math.floor(Math.random() * (allTags.length - 2)) + 2];
-    if (!customerTags.includes(randomTag)) {
-      customerTags.push(randomTag);
-    }
-    
+    if (!customerTags.includes(randomTag)) customerTags.push(randomTag);
     return customerTags;
   };
   
@@ -217,8 +195,8 @@ export default function CustomerManagement() {
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
     const totalCustomers = customersData.length;
-    const activeCustomers = customersData.filter(c => c.status === 'active').length;
-    const inactiveCustomers = customersData.filter(c => c.status === 'inactive' || c.status === 'blocked').length;
+    const activeCustomers = totalCustomers;
+    const inactiveCustomers = 0;
     const totalSpent = customersData.reduce((sum, customer) => sum + customer.total_spent, 0);
     const averageSpend = totalCustomers > 0 ? totalSpent / totalCustomers : 0;
     const newThisMonth = customersData.filter(c => 
@@ -242,7 +220,6 @@ export default function CustomerManagement() {
       phone: customer.phone,
       address: customer.address || '',
       notes: customer.notes || '',
-      status: customer.status
     });
     setShowAddModal(true);
   };
@@ -259,10 +236,9 @@ export default function CustomerManagement() {
             phone: formData.phone,
             address: formData.address,
             notes: formData.notes,
-            status: formData.status
           })
           .eq('id', editingCustomer.id);
-          
+
         if (error) throw error;
         toast.success('Customer updated successfully');
       } else {
@@ -274,9 +250,6 @@ export default function CustomerManagement() {
             phone: formData.phone,
             address: formData.address,
             notes: formData.notes,
-            status: formData.status,
-            total_orders: 0,
-            total_spent: 0
           }]);
           
         if (error) throw error;
@@ -294,21 +267,8 @@ export default function CustomerManagement() {
     }
   };
   
-  const handleStatusChange = async (id: string, status: Customer['status']) => {
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .update({ status })
-        .eq('id', id);
-        
-      if (error) throw error;
-      toast.success(`Customer status updated to ${status}`);
-      await fetchCustomers();
-    } catch (error: unknown) {
-      console.error('Error updating customer status:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update customer status';
-      toast.error(errorMessage);
-    }
+  const handleStatusChange = async (_id: string, _status: string) => {
+    toast.error('Status filtering is not available');
   };
   
   const handleViewCustomer = (customerId: string) => {
@@ -326,7 +286,6 @@ export default function CustomerManagement() {
       phone: '',
       address: '',
       notes: '',
-      status: 'active'
     });
   };
   
@@ -344,10 +303,10 @@ export default function CustomerManagement() {
   
   const exportCustomers = () => {
     // Create a CSV string from the filtered customers
-    const csvContent = 'data:text/csv;charset=utf-8,' + 
-      'Name,Email,Phone,Status,Total Spent,Orders\n' + 
-      filteredCustomers.map(customer => 
-        `"${customer.name}","${customer.email}","${customer.phone}","${customer.status}","${customer.total_spent}","${customer.total_orders}"`
+    const csvContent = 'data:text/csv;charset=utf-8,' +
+      'Name,Email,Phone,Total Spent,Orders\n' +
+      filteredCustomers.map(customer =>
+        `"${customer.name}","${customer.email}","${customer.phone}","${customer.total_spent}","${customer.total_orders}"`
       ).join('\n');
     
     const encodedUri = encodeURI(csvContent);
@@ -372,9 +331,8 @@ export default function CustomerManagement() {
       customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.phone.includes(searchQuery);
     
-    // Filter by status
-    const matchesStatus = selectedStatus === 'all' || customer.status === selectedStatus;
-    
+    const matchesStatus = true;
+
     // Filter by tags
     const matchesTags = tagFilter.length === 0 || 
       tagFilter.every(tag => customer.tags?.includes(tag));
@@ -453,17 +411,6 @@ export default function CustomerManagement() {
           </div>
           
           <div className="flex gap-2">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-            >
-              <option value="all">All Customers</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="blocked">Blocked</option>
-            </select>
-            
             <div className="relative">
               <button
                 onClick={() => document.getElementById('tagFilterDropdown')?.classList.toggle('hidden')}
@@ -723,18 +670,6 @@ export default function CustomerManagement() {
                     ></textarea>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as Customer['status'] })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="blocked">Blocked</option>
-                    </select>
-                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 mt-6">

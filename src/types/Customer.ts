@@ -10,7 +10,6 @@ total_orders: number;
 total_spent: number;
 loyalty_points?: number;
 notes?: string;
-status: 'active' | 'inactive' | 'blocked';
 tags?: string[];
 }
 

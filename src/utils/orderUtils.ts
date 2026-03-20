@@ -79,13 +79,10 @@ export const updateOrderStatus = async (
 ): Promise<boolean> => {
   try {
     // Prepare update data based on new status
-    const updateData = { 
+    const updateData = {
       status: newStatus,
       ...(newStatus === 'preparing' ? {
         estimated_completion_time: new Date(Date.now() + 20 * 60000).toISOString()
-      } : {}),
-      ...(newStatus === 'delivered' ? {
-        actual_completion_time: new Date().toISOString()
       } : {})
     };
 

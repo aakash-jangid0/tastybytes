@@ -91,9 +91,25 @@ function cartReducer(state: CartState, action: CartAction): CartState {
   }
 }
 
+const CART_STORAGE_KEY = 'tastybytes_cart';
+
+function loadCartFromStorage(): CartState {
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    if (stored) return { cartItems: JSON.parse(stored) };
+  } catch {}
+  return { cartItems: [] };
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { cartItems: [] });
+  const [state, dispatch] = useReducer(cartReducer, undefined, loadCartFromStorage);
   const prevStateRef = useRef<CartState>();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cartItems));
+    } catch {}
+  }, [state.cartItems]);
 
   useEffect(() => {
     if (state.lastAction && state.lastAction !== prevStateRef.current?.lastAction) {

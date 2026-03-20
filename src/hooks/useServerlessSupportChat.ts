@@ -33,8 +33,6 @@ export interface SupportChat {
   };
 }
 
-const NETLIFY_FUNCTION_URL = '/.netlify/functions';
-
 export function useSupportChat(orderId: string, customerId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,45 +40,41 @@ export function useSupportChat(orderId: string, customerId: string) {
   const [chatId, setChatId] = useState<string | null>(null);
   const [currentChat, setCurrentChat] = useState<SupportChat | null>(null);
 
-  // Load chat history
+  // Load chat and messages directly from Supabase
   const loadChat = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 Loading chat for:', { orderId, customerId });
+      // Find active chat for this order + customer
+      const { data: chats, error: chatError } = await supabase
+        .from('support_chats')
+        .select('*')
+        .eq('order_id', orderId)
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      const response = await fetch(`${NETLIFY_FUNCTION_URL}/support-chat?customerId=${customerId}`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (chatError) {
+        console.error('Error loading chat:', chatError);
+        throw chatError;
       }
 
-      const data = await response.json();
-      console.log('📦 Chat data received:', data);
-
-      // Ensure data is an array before calling .find()
-      const chats = Array.isArray(data) ? data : [];
-
-      const chat = chats.find((c: SupportChat) => c.order_id === orderId);
-      console.log('🎯 Found chat for order:', chat);
+      const chat = chats?.[0] as SupportChat | undefined;
 
       if (chat) {
         setChatId(chat.id);
         setCurrentChat(chat);
 
         // Load messages for this chat
-        const { data: messages, error } = await supabase
+        const { data: msgs, error: msgError } = await supabase
           .from('chat_messages')
           .select('*')
           .eq('chat_id', chat.id)
           .order('sent_at', { ascending: true });
 
-        if (error) throw error;
-        console.log('💬 Messages loaded:', messages);
-        setMessages(messages || []);
-      } else {
-        console.log('❌ No chat found for this order');
+        if (msgError) throw msgError;
+        setMessages(msgs || []);
       }
     } catch (err) {
       console.error('Error loading chat:', err);
@@ -90,251 +84,113 @@ export function useSupportChat(orderId: string, customerId: string) {
     }
   }, [orderId, customerId]);
 
-  // Send a message
+  // Load a specific chat by ID (used when AI creates a chat)
+  const loadChatById = useCallback(async (id: string) => {
+    try {
+      const { data: chat, error: chatError } = await supabase
+        .from('support_chats')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (chatError) throw chatError;
+      if (chat) {
+        setChatId(chat.id);
+        setCurrentChat(chat as SupportChat);
+
+        const { data: msgs, error: msgError } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('chat_id', chat.id)
+          .order('sent_at', { ascending: true });
+
+        if (msgError) throw msgError;
+        setMessages(msgs || []);
+      }
+    } catch (err) {
+      console.error('Error loading chat by ID:', err);
+    }
+  }, []);
+
+  // Send a message (for human support mode)
   const sendMessage = async (message: string) => {
-    if (!message.trim()) return;
+    if (!message.trim() || !chatId) return;
 
     try {
-      setIsLoading(true);
       setError(null);
 
-      console.log('📤 Sending message:', { message, customerId, orderId });
-
-      // Create optimistic message for instant UI update
-      const optimisticId = `temp-${Date.now()}`;
-      const optimisticMessage = {
-        id: optimisticId,
-        chat_id: chatId || '',
+      // Optimistic update
+      const optimisticMsg: Message = {
+        id: `temp-${Date.now()}`,
+        chat_id: chatId,
         sender_id: customerId,
         content: message.trim(),
         sent_at: new Date().toISOString(),
-        sender_type: 'customer' as const,
-        read: false
+        sender_type: 'customer',
+        read: false,
       };
+      setMessages(prev => [...prev, optimisticMsg]);
 
-      // Update UI immediately with optimistic message
-      setMessages(prev => [...prev, optimisticMessage]);
+      // Insert message into Supabase
+      const { data: savedMsg, error: insertError } = await supabase
+        .from('chat_messages')
+        .insert({
+          chat_id: chatId,
+          sender_id: customerId,
+          sender_type: 'customer',
+          content: message.trim(),
+        })
+        .select()
+        .single();
 
-      const response = await fetch(`${NETLIFY_FUNCTION_URL}/support-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          customerId,
-          orderId,
-          message: message.trim()
-        }),
-      });
-
-      console.log('📡 Send message response status:', response.status);
-
-      if (!response.ok) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (insertError) {
+        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+        throw insertError;
       }
 
-      const result = await response.json();
-      console.log('✅ Send message result:', result);
-
-      if (!result.success) {
-        // Remove optimistic message on error
-        setMessages(prev => prev.filter(msg => msg.id !== optimisticId));
-        throw new Error(result.error || 'Failed to send message');
+      // Replace optimistic message with real one
+      if (savedMsg) {
+        setMessages(prev =>
+          prev.map(m => (m.id === optimisticMsg.id ? savedMsg : m))
+        );
       }
 
-      // If chat was just created, set the chat ID and reload
-      if (!chatId && result.chatId) {
-        console.log('🆕 New chat created, setting chatId and reloading');
-        setChatId(result.chatId);
-        await loadChat(); // This will replace the optimistic message with real messages
-      } else if (result.message) {
-        console.log('🔄 Replacing optimistic message with real message:', {
-          optimisticId,
-          realMessage: result.message
-        });
-        // Replace optimistic message with real message from server
-        setMessages(prev => {
-          const updated = prev.map(msg =>
-            msg.id === optimisticId ? result.message : msg
-          );
-          console.log('📝 Messages after replacement:', updated.length);
-          return updated;
-        });
-      } else {
-        console.log('⚠️ No message returned from server, keeping optimistic message');
-      }
+      // Update last_message_at
+      await supabase
+        .from('support_chats')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', chatId);
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Mark messages as read
-  const markMessagesAsRead = useCallback(async () => {
-    if (!chatId) return;
-
-    try {
-      await supabase
-        .from('chat_messages')
-        .update({ status: 'read' })
-        .eq('chat_id', chatId)
-        .not('status', 'eq', 'read');
-    } catch (err) {
-      console.error('Error marking messages as read:', err);
-    }
-  }, [chatId]);
-
-  // Load chat on mount
-  useEffect(() => {
-    loadChat();
-  }, [loadChat]);
-
-  // Test Supabase connection and real-time
-  useEffect(() => {
-    const testRealtimeConnection = async () => {
-      try {
-        console.log('🧪 Testing Supabase real-time connection...');
-        const { data } = await supabase.from('chat_messages').select('count').limit(1);
-        console.log('✅ Supabase connection working, count:', data);
-      } catch (error) {
-        console.error('❌ Supabase connection error:', error);
-      }
-    };
-
-    testRealtimeConnection();
-  }, []);
-
-  // Subscribe to new messages
-  useEffect(() => {
-    if (!chatId) {
-      console.log('❌ No chatId, skipping real-time subscription');
-      return;
-    }
-
-    console.log('🔄 Setting up real-time subscription for chat:', chatId);
-
-    const channel = supabase
-      .channel(`chat:${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `chat_id=eq.${chatId}`
-        },
-        (payload) => {
-          console.log('📨 Real-time message received:', payload.new);
-          const newMessage = payload.new as Message;
-
-          console.log('🔍 Message details:', {
-            id: newMessage.id,
-            sender_type: newMessage.sender_type,
-            sender_id: newMessage.sender_id,
-            content: newMessage.content,
-            chat_id: newMessage.chat_id
-          });
-
-          // Add admin messages immediately, don't add customer messages (handled optimistically)
-          if (newMessage.sender_type === 'admin') {
-            console.log('👨‍💼 Adding admin message to customer chat');
-            setMessages(prev => {
-              // Check if message already exists to prevent duplicates
-              const exists = prev.some(msg => msg.id === newMessage.id);
-              if (exists) {
-                console.log('⚠️ Message already exists, skipping');
-                return prev;
-              }
-              console.log('✅ Adding new admin message');
-              return [...prev, newMessage];
-            });
-          } else if (newMessage.sender_type === 'customer') {
-            console.log('👤 Customer message (handled optimistically, skipping real-time)');
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔌 Subscription status:', status);
-      });
-
-    return () => {
-      console.log('🔌 Unsubscribing from real-time for chat:', chatId);
-      supabase.removeChannel(channel);
-    };
-  }, [chatId]);
-
-  // Subscribe to chat status changes
-  useEffect(() => {
-    if (!chatId) return;
-
-    console.log('🔄 Setting up chat status subscription for chat:', chatId);
-
-    const statusChannel = supabase
-      .channel(`chat-status:${chatId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'support_chats',
-          filter: `id=eq.${chatId}`
-        },
-        (payload) => {
-          console.log('📊 Chat status updated:', payload.new);
-          const updatedChat = payload.new as SupportChat;
-
-          if (updatedChat.status !== currentChat?.status) {
-            console.log('🔄 Chat status changed from', currentChat?.status, 'to', updatedChat.status);
-            setCurrentChat(prev => prev ? { ...prev, status: updatedChat.status } : null);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔌 Chat status subscription status:', status);
-      });
-
-    return () => {
-      console.log('🔌 Unsubscribing from chat status updates');
-      supabase.removeChannel(statusChannel);
-    };
-  }, [chatId, currentChat?.status]);
-
-  const status = currentChat?.status || 'active';
-
+  // Start a new chat (for human support mode with category selection)
   const startChat = async (issue: string, category: string) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${NETLIFY_FUNCTION_URL}/support-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          customerId,
-          orderId,
+      const { data: newChat, error: chatError } = await supabase
+        .from('support_chats')
+        .insert({
+          customer_id: customerId,
+          order_id: orderId,
           issue,
           category,
-          status: 'active'
-        }),
-      });
+          status: 'active',
+          is_ai_active: false,
+        })
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      if (chatError) throw chatError;
 
-      const result = await response.json();
-
-      if (result.success) {
-        setChatId(result.chatId);
-        await loadChat();
+      if (newChat) {
+        setChatId(newChat.id);
+        setCurrentChat(newChat as SupportChat);
+        setMessages([]);
       }
     } catch (err) {
       console.error('Error starting chat:', err);
@@ -344,15 +200,120 @@ export function useSupportChat(orderId: string, customerId: string) {
     }
   };
 
+  // Mark messages as read
+  const markMessagesAsRead = useCallback(async () => {
+    if (!chatId) return;
+    try {
+      await supabase
+        .from('chat_messages')
+        .update({ read: true })
+        .eq('chat_id', chatId)
+        .eq('read', false);
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  }, [chatId]);
+
+  // Add a message locally (used by AI chat to inject messages without re-fetching)
+  const addMessageLocally = useCallback((msg: Message) => {
+    setMessages(prev => {
+      const exists = prev.some(m => m.id === msg.id);
+      if (exists) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  // Load chat on mount
+  useEffect(() => {
+    loadChat();
+  }, [loadChat]);
+
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!chatId) return;
+
+    const channel = supabase
+      .channel(`chat-messages:${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          // Add message if it's from admin or AI (customer messages handled optimistically)
+          if (newMessage.sender_type === 'admin' || newMessage.sender_type === 'ai') {
+            setMessages(prev => {
+              const exists = prev.some(m => m.id === newMessage.id);
+              if (exists) return prev;
+              return [...prev, newMessage];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId]);
+
+  // Real-time subscription for chat status changes
+  useEffect(() => {
+    if (!chatId) return;
+
+    const channel = supabase
+      .channel(`chat-status:${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'support_chats',
+          filter: `id=eq.${chatId}`,
+        },
+        (payload) => {
+          const updated = payload.new as SupportChat;
+          setCurrentChat(prev =>
+            prev ? { ...prev, ...updated } : null
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId]);
+
+  // Reset all chat state (for starting a new conversation after resolved)
+  const resetChat = useCallback(() => {
+    setChatId(null);
+    setCurrentChat(null);
+    setMessages([]);
+    setError(null);
+  }, []);
+
+  const status = currentChat?.status || 'active';
+
   return {
     messages,
     isLoading,
     error,
     chatId,
+    setChatId,
     currentChat,
+    setCurrentChat,
     status,
     sendMessage,
     markMessagesAsRead,
     startChat,
+    loadChat,
+    loadChatById,
+    addMessageLocally,
+    resetChat,
   };
 }

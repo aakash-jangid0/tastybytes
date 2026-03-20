@@ -154,15 +154,15 @@ function OrderHistory() {
                       <span className="text-lg font-semibold">
                         ₹{order.total_amount.toFixed(2)}
                       </span>
-                      {order.coupon_code && (
+                      {(order as any).coupon_code && (
                         <div className="flex items-center text-sm text-green-600">
                           <span className="mr-2">Applied Coupon:</span>
-                          <span className="font-medium">{String(order.coupon_code)}</span>
+                          <span className="font-medium">{String((order as any).coupon_code)}</span>
                           <span className="mx-1">-</span>
                           <span>
-                            {order.coupon_discount_type === 'percentage'
-                              ? `${order.coupon_discount_value}% off`
-                              : `₹${order.coupon_discount_amount} off`}
+                            {(order as any).coupon_discount_type === 'percentage'
+                              ? `${(order as any).coupon_discount_value}% off`
+                              : `₹${(order as any).coupon_discount_amount} off`}
                           </span>
                         </div>
                       )}

@@ -64,7 +64,6 @@ interface TrackingOrder {
   total_amount: number;
   payment_method: string;
   payment_status: string;
-  has_feedback?: boolean;
   invoice_id?: string; // Add invoice_id to support direct invoice retrieval
   coupon_code?: string;
   coupon_discount_type?: 'percentage' | 'fixed_amount';
@@ -157,7 +156,14 @@ function OrderTracking() {
       if (!orderData) throw new Error('Order not found');
 
       setOrder(orderData);
-      setHasFeedback(orderData.has_feedback || false);
+
+      // Check if feedback already exists (live check instead of stale has_feedback column)
+      const { data: feedbackData } = await supabase
+        .from('order_feedback')
+        .select('id')
+        .eq('order_id', orderId)
+        .maybeSingle();
+      setHasFeedback(!!feedbackData);
       
       // Since only authenticated users can access order tracking, 
       // they are by definition registered customers
@@ -570,6 +576,7 @@ function OrderTracking() {
                           </span>
                         </div>
                       )}
+
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Subtotal</span>
                         <span>₹{order.total_amount.toFixed(2)}</span>

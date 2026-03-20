@@ -25,8 +25,8 @@ import {
   Twitter,
   Linkedin
 } from 'lucide-react';
-import { useWebsiteSettings } from '../../contexts/WebsiteSettingsContext';
-import { WebsiteSettingsProvider } from '../../contexts/WebsiteSettingsContext';
+import { useWebsiteSettings } from '../../context/WebsiteSettingsContext';
+import { WebsiteSettingsProvider } from '../../context/WebsiteSettingsContext';
 import ImageUpload from '../../components/ui/ImageUpload';
 import { useMenuItems } from '../../hooks/useMenuItems';
 import { MenuItem } from '../../types/menu';

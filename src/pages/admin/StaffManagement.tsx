@@ -101,230 +101,6 @@ export default function StaffManagement() {
       roleDistribution
     });
   };
-  // Functions to create necessary tables if they don't exist
-  const createStaffAttendanceTable = async () => {
-    try {
-      toast.loading('Setting up attendance system...');
-      
-      // Run the SQL to create the staff_attendance table using our migration file
-      const { error } = await supabase.rpc('run_sql', {
-        sql: `
-          -- Create staff_attendance table with proper schema
-          CREATE TABLE IF NOT EXISTS public.staff_attendance (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            staff_id UUID NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
-            staff_name TEXT, -- Denormalized for performance
-            check_in TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-            check_out TIMESTAMP WITH TIME ZONE,
-            status TEXT DEFAULT 'present' CHECK (status IN ('present', 'absent', 'late', 'half-day')),
-            total_hours NUMERIC,
-            notes TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-          );
-          
-          -- Create indexes for performance
-          CREATE INDEX IF NOT EXISTS idx_staff_attendance_staff_id ON public.staff_attendance(staff_id);
-          CREATE INDEX IF NOT EXISTS idx_staff_attendance_check_in ON public.staff_attendance(check_in);
-          CREATE INDEX IF NOT EXISTS idx_staff_attendance_status ON public.staff_attendance(status);
-
-          -- Enable RLS
-          ALTER TABLE public.staff_attendance ENABLE ROW LEVEL SECURITY;
-          
-          -- Add policies
-          DO $$
-          BEGIN
-            -- Admins can perform all actions
-            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'staff_attendance' AND policyname = 'Admin can manage all attendance') THEN
-              CREATE POLICY "Admin can manage all attendance" 
-              ON public.staff_attendance FOR ALL 
-              TO authenticated
-              USING (
-                EXISTS (
-                  SELECT 1 FROM public.staff
-                  WHERE 
-                    user_id = auth.uid() AND 
-                    (role = 'admin' OR role = 'manager')
-                )
-              )
-              WITH CHECK (
-                EXISTS (
-                  SELECT 1 FROM public.staff
-                  WHERE 
-                    user_id = auth.uid() AND 
-                    (role = 'admin' OR role = 'manager')
-                )
-              );
-            END IF;
-
-            -- Staff can view their own attendance records
-            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'staff_attendance' AND policyname = 'Staff can view their own attendance') THEN
-              CREATE POLICY "Staff can view their own attendance" 
-              ON public.staff_attendance FOR SELECT 
-              TO authenticated
-              USING (
-                staff_id IN (
-                  SELECT id FROM public.staff WHERE user_id = auth.uid()
-                )
-              );
-            END IF;
-          END
-          $$;
-        `
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Add some sample data
-      const { data: staffData } = await supabase.from('staff').select('id').limit(3);
-      
-      if (staffData && staffData.length > 0) {
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
-        
-        const sampleRecords = staffData.map(staff => [
-          {
-            staff_id: staff.id,
-            date: today.toISOString().split('T')[0],
-            check_in: new Date(today.setHours(9, 0, 0)).toISOString(),
-            check_out: new Date(today.setHours(17, 0, 0)).toISOString(),
-            hours_worked: 8,
-            status: 'present'
-          },
-          {
-            staff_id: staff.id,
-            date: yesterday.toISOString().split('T')[0],
-            check_in: new Date(yesterday.setHours(9, 0, 0)).toISOString(),
-            check_out: new Date(yesterday.setHours(17, 0, 0)).toISOString(),
-            hours_worked: 8,
-            status: Math.random() > 0.7 ? 'absent' : 'present'
-          }
-        ]).flat();
-        
-        const { error: insertError } = await supabase
-          .from('staff_attendance')
-          .insert(sampleRecords);
-          
-        if (insertError) {
-          console.error('Error inserting sample attendance:', insertError);
-        }
-      }
-      
-      toast.dismiss();
-      toast.success('Attendance system is ready');
-      
-      // Clear the error state
-      setTableErrors(prev => ({ ...prev, attendance: false }));
-      
-      // Refresh attendance records
-      await fetchAttendanceRecords();
-      
-    } catch (error) {
-      console.error('Failed to create attendance table:', error);
-      toast.dismiss();
-      toast.error('Failed to set up attendance system');
-      setTableErrors(prev => ({ ...prev, attendance: true }));
-      setLoading(false);
-    }
-  };
-  const createStaffShiftsTable = async () => {
-    try {
-      toast.loading('Setting up shift scheduler...');
-      
-      // Run the SQL to create the staff_shifts table
-      const { error } = await supabase.rpc('run_sql', {
-        sql: `
-          CREATE TABLE IF NOT EXISTS public.staff_shifts (
-            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-            staff_id UUID NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
-            shift_date DATE NOT NULL,
-            start_time TIME NOT NULL,
-            end_time TIME NOT NULL,
-            break_duration INTEGER DEFAULT 30,
-            total_hours NUMERIC,
-            status TEXT DEFAULT 'scheduled',
-            notes TEXT,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-          );
-          
-          -- Enable RLS
-          ALTER TABLE public.staff_shifts ENABLE ROW LEVEL SECURITY;
-          
-          -- Add policies
-          DO $$
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'staff_shifts' AND policyname = 'staff_shifts_select_policy') THEN
-              CREATE POLICY staff_shifts_select_policy ON public.staff_shifts
-                FOR SELECT USING (true);
-            END IF;
-          END
-          $$;
-        `
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Add some sample data
-      const { data: staffData } = await supabase.from('staff').select('id').limit(3);
-      
-      if (staffData && staffData.length > 0) {
-        const today = new Date();
-        const tomorrow = new Date();
-        tomorrow.setDate(today.getDate() + 1);
-        
-        const shiftTypes = ['morning', 'afternoon', 'evening'];
-        const shiftTimes = {
-          morning: { start: '08:00', end: '16:00' },
-          afternoon: { start: '12:00', end: '20:00' },
-          evening: { start: '16:00', end: '00:00' }
-        };
-        
-        const sampleShifts = staffData.map((staff, index) => {
-          const shiftType = shiftTypes[index % shiftTypes.length];
-          return {
-            staff_id: staff.id,
-            shift_date: tomorrow.toISOString().split('T')[0],
-            start_time: shiftTimes[shiftType].start,
-            end_time: shiftTimes[shiftType].end,
-            break_duration: 30,
-            total_hours: shiftType === 'evening' ? 8 : 7.5,
-            status: 'scheduled',
-            notes: `Sample ${shiftType} shift`
-          };
-        });
-        
-        const { error: insertError } = await supabase
-          .from('staff_shifts')
-          .insert(sampleShifts);
-          
-        if (insertError) {
-          console.error('Error inserting sample shifts:', insertError);
-        }
-      }
-      
-      toast.dismiss();
-      toast.success('Shift scheduler is ready');
-      
-      // Clear the error state
-      setTableErrors(prev => ({ ...prev, shifts: false }));
-      
-      // Refresh shifts
-      await fetchShifts();
-      
-    } catch (error) {
-      console.error('Failed to create shifts table:', error);
-      toast.dismiss();
-      toast.error('Failed to set up shift scheduler');
-      setTableErrors(prev => ({ ...prev, shifts: true }));
-      setLoading(false);
-    }
-  };
   const fetchAttendanceRecords = async () => {
     try {
       console.log('Fetching attendance records...');
@@ -850,14 +626,10 @@ export default function StaffManagement() {
           ) : tableErrors.attendance ? (
             <div className="p-6 text-center">
               <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
-              <h3 className="text-lg font-medium mb-2">Database Configuration Required</h3>
-              <p className="text-gray-600 mb-4">The attendance tracking system needs to be configured.</p>
-              <button 
-                onClick={createStaffAttendanceTable}
-                className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-              >
-                Set Up Attendance System
-              </button>
+              <h3 className="text-lg font-medium mb-2">Attendance Table Not Found</h3>
+              <p className="text-gray-600 mb-4">
+                The <code>staff_attendance</code> table does not exist. Please run the database migration in the Supabase SQL Editor to create it.
+              </p>
             </div>
           ) : (
             <AttendanceTracker
@@ -880,14 +652,10 @@ export default function StaffManagement() {
           ) : tableErrors.shifts ? (
             <div className="p-6 text-center">
               <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
-              <h3 className="text-lg font-medium mb-2">Database Configuration Required</h3>
-              <p className="text-gray-600 mb-4">The shift scheduling system needs to be configured.</p>
-              <button 
-                onClick={createStaffShiftsTable}
-                className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-              >
-                Set Up Shift Scheduler
-              </button>
+              <h3 className="text-lg font-medium mb-2">Shifts Table Not Found</h3>
+              <p className="text-gray-600 mb-4">
+                The <code>staff_shifts</code> table does not exist. Please run the database migration in the Supabase SQL Editor to create it.
+              </p>
             </div>
           ) : (
             <ShiftScheduler

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { UtensilsCrossed, Clock, Star, ArrowRight, ChefHat, Heart, Award } from 'lucide-react';
 import PageTransition from '../components/common/PageTransition';
 import { motion } from 'framer-motion';
-import { useWebsiteSettings } from '../contexts/WebsiteSettingsContext';
+import { useWebsiteSettings } from '../context/WebsiteSettingsContext';
 import { useMenuItems } from '../hooks/useMenuItems';
 
 // Icon mapping for features

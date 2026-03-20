@@ -1,27 +1,15 @@
-import { BrowserRouter as Router, Routes, Route, useSearchParams, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { WebsiteSettingsProvider } from './contexts/WebsiteSettingsContext';
+import { WebsiteSettingsProvider } from './context/WebsiteSettingsContext';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import NetworkStatus from './components/common/NetworkStatus.jsx';
-import ErrorsPage from './pages/ErrorsPage';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import { setupGlobalToastDismiss } from './utils/toastUtils';
 import { useEffect } from 'react';
 import EmergencyToastDismiss from './components/ui/EmergencyToastDismiss';
 
-// Create a separate component for diagnostic redirection
-const DiagnosticRedirect = () => {
-  const [searchParams] = useSearchParams();
-  const location = useLocation();
-  
-  if (searchParams.get('diagnostics') === 'true' && location.pathname === '/') {
-    return <Navigate to="/diagnostics" replace />;
-  }
-  
-  return null;
-};
 
 // Pages
 import Home from './pages/Home';
@@ -38,7 +26,7 @@ import OrderManagement from './pages/admin/OrderManagement';
 import QRCodeManagement from './pages/admin/QRCodeManagement';
 import InvoiceManagement from './pages/admin/InvoiceManagement';
 import InvoiceTemplateSettings from './pages/admin/InvoiceTemplateSettings';
-import InventoryManagement from './pages/admin/InventoryManagement';
+
 import StaffManagement from './pages/admin/StaffManagement';
 import StaffProfile from './pages/admin/StaffProfile';
 import CustomerManagement from './pages/admin/CustomerManagement';
@@ -57,7 +45,6 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <NetworkStatus />
       <AuthProvider>
         <CartProvider>
           <WebsiteSettingsProvider>
@@ -122,11 +109,8 @@ export default function App() {
                   reverseOrder={false}
                   gutter={8}
                 />
-                <DiagnosticRedirect />
                 <Routes>
-                  {/* Diagnostics Page - No Layout */}
-                  <Route path="/diagnostics" element={<ErrorsPage />} />
-                
+
                 {/* Public Routes */}
                 <Route element={<Layout />}>
                   <Route path="/" element={<Home />} />
@@ -138,20 +122,32 @@ export default function App() {
                 </Route>
 
                 {/* Kitchen Dashboard */}
-                <Route path="/kitchen" element={<KitchenDashboard />} />
+                <Route path="/kitchen" element={
+                  <ProtectedRoute requiredRole="kitchen">
+                    <KitchenDashboard />
+                  </ProtectedRoute>
+                } />
 
                 {/* Counter Dashboard */}
-                <Route path="/counter" element={<CounterDashboard />} />
+                <Route path="/counter" element={
+                  <ProtectedRoute requiredRole="counter">
+                    <CounterDashboard />
+                  </ProtectedRoute>
+                } />
 
                 {/* Admin Dashboard */}
-                <Route path="/admin" element={<AdminDashboard />}>
+                <Route path="/admin" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }>
                   <Route path="menu" element={<MenuManagement />} />
                   <Route path="orders" element={<OrderManagement />} />
                   <Route path="/admin/customers" element={<CustomerManagement />} />
                   <Route path="invoices" element={<InvoiceManagement />} />
                   <Route path="invoice-settings" element={<InvoiceTemplateSettings />} />
                   <Route path="qr-codes" element={<QRCodeManagement />} />
-                  <Route path="inventory" element={<InventoryManagement />} />
+
                   <Route path="staff" element={<StaffManagement />} />
                   <Route path="staff/:id" element={<StaffProfile />} />
                   <Route path="feedback" element={<FeedbackManagement />} />

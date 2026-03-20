@@ -15,8 +15,6 @@ interface OrderItem {
 interface Order {
   id: string; // To get a standardized order number, use id.slice(-6)
   customer_name: string;
-  customer_email?: string;
-  customer_phone?: string;
   table_number?: string;
   order_type: 'dine-in' | 'takeaway';
   payment_method: 'cash' | 'card' | 'upi' | 'razorpay' | 'pending';
@@ -197,7 +195,6 @@ export function useOrders() {
       const orderData = {
         // Always include these fields
         customer_name: customerNameFromProfile || customerName || user?.user_metadata?.name || user?.email || 'Guest',
-        customer_email: customerEmailFromProfile || user?.email,
         subtotal,
         tax,
         discount,

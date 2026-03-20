@@ -30,7 +30,7 @@ export function useMenuItems() {
   useEffect(() => {
     // Set up the abort controller
     const abortController = new AbortController();
-    const cacheKey = 'menuItems_cache';
+    const cacheKey = 'menuItems_cache_v2';
     
     // Reset mounted state on mount
     isMounted.current = true;

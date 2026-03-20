@@ -73,6 +73,7 @@ export function useMenuFilters() {
     filters,
     setFilters,
     filteredItems,
+    menuItems,
     isLoading
   };
 }

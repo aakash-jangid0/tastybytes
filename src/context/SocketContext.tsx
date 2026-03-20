@@ -2,7 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { SOCKET_URL, SOCKET_OPTIONS } from '../config/socket';
-import { SocketContext } from './socket/context';
+import { createContext } from 'react';
+
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+}
+
+export const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+});
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);

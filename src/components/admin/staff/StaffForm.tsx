@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { X, User, Mail, Phone, MapPin, Calendar, DollarSign, Briefcase, FileText, Clock, Shield, CreditCard, Percent, CircleDollarSign, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, User, Mail, Phone, Calendar, Briefcase, FileText, Clock, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 
@@ -30,67 +30,38 @@ function StaffForm({
     full_name: '',
     email: '',
     phone: '',
-    address: '',
     role: 'server',
     department: 'service',
     start_date: new Date().toISOString().split('T')[0],
-    
+
     // Additional Information
     date_of_birth: '',
-    national_id: '',
     gender: '',
     marital_status: '',
     blood_group: '',
     nationality: '',
-    
+
     // Employment Details
     employee_id: '',
     contract_type: 'permanent',
     hire_status: 'active',
     probation_end_date: '',
     notice_period: '30',
-    skills: '',
     joining_date: '',
-    employment_history: '',
-    
-    // Salary Information
-    base_salary: '',
     hourly_rate: '',
-    payment_schedule: 'monthly',
-    bank_name: '',
-    bank_account: '',
-    tax_id: '',
-    bonus: '',
-    deductions: '',
-    net_salary: '',
-    
-    // Emergency Contact
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    emergency_contact_relation: '',
-    
+
     // Other
     profile_photo_url: '',
-    
+
     // Attendance & Working Hours
     working_hours_per_week: '40',
-    default_shift: 'day',
     weekend_availability: false,
     overtime_eligible: true,
     time_off_accrual_rate: '1.5',
-    
+
     // Leave Management
     annual_leave_balance: '20',
     sick_leave_balance: '10',
-    leave_start_date: '',
-    leave_end_date: '',
-    leave_reason: '',
-    
-    // Performance & Evaluations
-    last_evaluation_date: '',
-    evaluation_score: '',
-    next_evaluation_date: '',
-    performance_notes: ''
   });
 
   useEffect(() => {
@@ -98,71 +69,42 @@ function StaffForm({
       if (initialData.profile_photo_url) {
         setPhotoPreview(initialData.profile_photo_url);
       }
-      
+
       setFormData({
         full_name: initialData.full_name || '',
         email: initialData.email || '',
         phone: initialData.phone || '',
-        address: initialData.address || '',
         role: initialData.role || 'server',
         department: initialData.department || 'service',
         start_date: initialData.start_date || new Date().toISOString().split('T')[0],
-        
+
         // Additional Information
         date_of_birth: initialData.date_of_birth || '',
-        national_id: initialData.national_id || '',
         gender: initialData.gender || '',
         marital_status: initialData.marital_status || '',
         blood_group: initialData.blood_group || '',
         nationality: initialData.nationality || '',
-        
+
         // Employment Details
         employee_id: initialData.employee_id || '',
         contract_type: initialData.contract_type || 'permanent',
         hire_status: initialData.hire_status || 'active',
         probation_end_date: initialData.probation_end_date || '',
         notice_period: initialData.notice_period?.replace(' days', '') || '30',
-        skills: initialData.skills ? initialData.skills.join(', ') : '',
         joining_date: initialData.joining_date || '',
-        employment_history: initialData.employment_history || '',
-        
-        // Salary Information
-        base_salary: initialData.base_salary !== undefined ? String(initialData.base_salary) : '',
         hourly_rate: initialData.hourly_rate !== undefined ? String(initialData.hourly_rate) : '',
-        payment_schedule: initialData.payment_schedule || 'monthly',
-        bank_name: initialData.bank_name || '',
-        bank_account: initialData.bank_account || '',
-        tax_id: initialData.tax_id || '',
-        bonus: initialData.bonus !== undefined ? String(initialData.bonus) : '',
-        deductions: initialData.deductions !== undefined ? String(initialData.deductions) : '',
-        net_salary: initialData.net_salary !== undefined ? String(initialData.net_salary) : '',
-        
-        // Emergency Contact
-        emergency_contact_name: initialData.emergency_contact_name || '',
-        emergency_contact_phone: initialData.emergency_contact_phone || '',
-        emergency_contact_relation: initialData.emergency_contact_relation || '',
-        
+
         profile_photo_url: initialData.profile_photo_url || '',
-        
+
         // Attendance & Working Hours
         working_hours_per_week: initialData.working_hours_per_week !== undefined ? String(initialData.working_hours_per_week) : '40',
-        default_shift: initialData.default_shift || 'day',
         weekend_availability: initialData.weekend_availability || false,
         overtime_eligible: initialData.overtime_eligible || true,
         time_off_accrual_rate: initialData.time_off_accrual_rate !== undefined ? String(initialData.time_off_accrual_rate) : '1.5',
-        
+
         // Leave Management
         annual_leave_balance: initialData.annual_leave_balance !== undefined ? String(initialData.annual_leave_balance) : '20',
         sick_leave_balance: initialData.sick_leave_balance !== undefined ? String(initialData.sick_leave_balance) : '10',
-        leave_start_date: initialData.leave_start_date || '',
-        leave_end_date: initialData.leave_end_date || '',
-        leave_reason: initialData.leave_reason || '',
-        
-        // Performance & Evaluations
-        last_evaluation_date: initialData.last_evaluation_date || '',
-        evaluation_score: initialData.evaluation_score !== undefined ? String(initialData.evaluation_score) : '',
-        next_evaluation_date: initialData.next_evaluation_date || '',
-        performance_notes: initialData.performance_notes || ''
       });
     }
   }, [initialData]);
@@ -184,7 +126,7 @@ function StaffForm({
       }
 
       setPhotoFile(file);
-      
+
       // Create a preview
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -193,39 +135,31 @@ function StaffForm({
       reader.readAsDataURL(file);
     }
   };
-  
+
   // Trigger file upload dialog
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       // Format the data properly
       const processedData: Partial<Staff> = {
         ...formData,
-        skills: formData.skills ? formData.skills.split(',').map(s => s.trim()) : [],
         notice_period: formData.notice_period + ' days',
         role: formData.role as 'admin' | 'manager' | 'chef' | 'server' | 'cashier',
         department: formData.department as 'kitchen' | 'service' | 'management' | 'accounts',
         contract_type: formData.contract_type as 'permanent' | 'contract' | 'part-time' | 'probation',
         hire_status: formData.hire_status as 'active' | 'on-leave' | 'terminated' | 'resigned',
-        payment_schedule: formData.payment_schedule as 'weekly' | 'biweekly' | 'monthly',
-        default_shift: formData.default_shift as 'day' | 'night' | 'morning' | 'evening',
-        base_salary: formData.base_salary ? Number(formData.base_salary) : undefined,
         hourly_rate: formData.hourly_rate ? Number(formData.hourly_rate) : undefined,
-        bonus: formData.bonus ? Number(formData.bonus) : undefined,
-        deductions: formData.deductions ? Number(formData.deductions) : undefined,
-        net_salary: formData.net_salary ? Number(formData.net_salary) : undefined,
         working_hours_per_week: formData.working_hours_per_week ? Number(formData.working_hours_per_week) : undefined,
         time_off_accrual_rate: formData.time_off_accrual_rate ? Number(formData.time_off_accrual_rate) : undefined,
         annual_leave_balance: formData.annual_leave_balance ? Number(formData.annual_leave_balance) : undefined,
         sick_leave_balance: formData.sick_leave_balance ? Number(formData.sick_leave_balance) : undefined,
-        evaluation_score: formData.evaluation_score ? Number(formData.evaluation_score) : undefined
       };
-      
+
       onSubmit(processedData, photoFile);
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -233,12 +167,10 @@ function StaffForm({
         full_name: '',
         email: '',
         phone: '',
-        address: '',
         role: 'server',
         department: 'service',
         start_date: new Date().toISOString().split('T')[0],
         date_of_birth: '',
-        national_id: '',
         gender: '',
         marital_status: '',
         blood_group: '',
@@ -248,36 +180,15 @@ function StaffForm({
         hire_status: 'active',
         probation_end_date: '',
         notice_period: '30',
-        skills: '',
         joining_date: '',
-        employment_history: '',
-        base_salary: '',
         hourly_rate: '',
-        payment_schedule: 'monthly',
-        bank_name: '',
-        bank_account: '',
-        tax_id: '',
-        bonus: '',
-        deductions: '',
-        net_salary: '',
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
-        emergency_contact_relation: '',
         profile_photo_url: '',
         working_hours_per_week: '40',
-        default_shift: 'day',
         weekend_availability: false,
         overtime_eligible: true,
         time_off_accrual_rate: '1.5',
         annual_leave_balance: '20',
         sick_leave_balance: '10',
-        leave_start_date: '',
-        leave_end_date: '',
-        leave_reason: '',
-        last_evaluation_date: '',
-        evaluation_score: '',
-        next_evaluation_date: '',
-        performance_notes: ''
       });
       setActiveTab('basic');
     } catch (error) {
@@ -291,9 +202,7 @@ function StaffForm({
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: User },
     { id: 'employment', label: 'Employment', icon: Briefcase },
-    { id: 'salary', label: 'Salary', icon: DollarSign },
     { id: 'personal', label: 'Personal', icon: FileText },
-    { id: 'emergency', label: 'Emergency Contact', icon: Shield }
   ];
 
   return (
@@ -320,15 +229,15 @@ function StaffForm({
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <div className="flex border-b mb-6 overflow-x-auto">
           {tabs.map(tab => (
-            <button 
+            <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id 
-                  ? "border-emerald-500 text-emerald-600" 
+                activeTab === tab.id
+                  ? "border-emerald-500 text-emerald-600"
                   : "border-transparent hover:text-emerald-500"
               }`}
             >
@@ -439,21 +348,6 @@ function StaffForm({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Address
-                  </label>
-                  <div className="mt-1 relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
                     Role
                   </label>
                   <select
@@ -504,7 +398,7 @@ function StaffForm({
                     className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Start Date
@@ -520,7 +414,7 @@ function StaffForm({
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Contract Type
@@ -536,7 +430,7 @@ function StaffForm({
                     <option value="probation">Probation</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Status
@@ -552,7 +446,7 @@ function StaffForm({
                     <option value="resigned">Resigned</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Probation End Date
@@ -564,7 +458,7 @@ function StaffForm({
                     className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Notice Period (Days)
@@ -574,19 +468,6 @@ function StaffForm({
                     value={formData.notice_period}
                     onChange={(e) => setFormData({ ...formData, notice_period: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Skills (Comma Separated)
-                  </label>
-                  <textarea
-                    value={formData.skills}
-                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    rows={2}
-                    placeholder="cooking, customer service, management, etc."
                   />
                 </div>
 
@@ -602,43 +483,6 @@ function StaffForm({
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Employment History
-                  </label>
-                  <textarea
-                    value={formData.employment_history}
-                    onChange={(e) => setFormData({ ...formData, employment_history: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                    rows={2}
-                    placeholder="Previous employment details"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Salary Information */}
-          {activeTab === 'salary' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Salary Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Base Salary
-                  </label>
-                  <div className="mt-1 relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="number"
-                      value={formData.base_salary}
-                      onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
-                      className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Hourly Rate
@@ -654,109 +498,10 @@ function StaffForm({
                     />
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Payment Schedule
-                  </label>
-                  <select
-                    value={formData.payment_schedule}
-                    onChange={(e) => setFormData({ ...formData, payment_schedule: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="weekly">Weekly</option>
-                    <option value="biweekly">Bi-weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Bank Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_name}
-                    onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Bank Account
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_account}
-                    onChange={(e) => setFormData({ ...formData, bank_account: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Tax ID
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.tax_id}
-                    onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Bonus
-                  </label>
-                  <div className="mt-1 relative">
-                    <Percent className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="number"
-                      value={formData.bonus}
-                      onChange={(e) => setFormData({ ...formData, bonus: e.target.value })}
-                      className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Deductions
-                  </label>
-                  <div className="mt-1 relative">
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="number"
-                      value={formData.deductions}
-                      onChange={(e) => setFormData({ ...formData, deductions: e.target.value })}
-                      className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Net Salary
-                  </label>
-                  <div className="mt-1 relative">
-                    <CircleDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="number"
-                      value={formData.net_salary}
-                      onChange={(e) => setFormData({ ...formData, net_salary: e.target.value })}
-                      className="pl-10 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           )}
-          
+
           {/* Personal Information */}
           {activeTab === 'personal' && (
             <div className="space-y-4">
@@ -773,19 +518,7 @@ function StaffForm({
                     className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    National ID / SSN
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.national_id}
-                    onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Gender
@@ -802,7 +535,7 @@ function StaffForm({
                     <option value="prefer-not-to-say">Prefer not to say</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Marital Status
@@ -840,50 +573,6 @@ function StaffForm({
                     type="text"
                     value={formData.nationality}
                     onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Emergency Contact */}
-          {activeTab === 'emergency' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Emergency Contact</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergency_contact_name}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Contact Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.emergency_contact_phone}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Relationship
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergency_contact_relation}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact_relation: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

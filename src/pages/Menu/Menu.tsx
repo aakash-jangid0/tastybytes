@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useScroll, useSpring, useTransform } from 'framer-motion';
 import { motion } from 'framer-motion';
-import PageTransition from '../../components/layout/PageTransition';
+import PageTransition from '../../components/common/PageTransition';
 import MenuHeader from './components/MenuHeader';
 import MenuGrid from './components/MenuGrid';
 import CategorySidebar from './components/CategorySidebar';

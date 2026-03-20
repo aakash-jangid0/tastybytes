@@ -1,0 +1,11 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"c:/Users/aakas/OneDrive/Desktop/tastybytes/Version 3 \\( ChatBot \\)/tastybytes/src/context/\")"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Facebook, Twitter, Instagram, Mail, Phone, MapPin, Clock, Youtube } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useWebsiteSettings } from '../../contexts/WebsiteSettingsContext';
+import { useWebsiteSettings } from '../../context/WebsiteSettingsContext';
 
 function Footer() {
   const { settings } = useWebsiteSettings();

@@ -45,13 +45,29 @@ export function useServerlessAdminChats() {
   useRealtimeSync<AdminChat>({
     table: 'support_chats',
     onInsert: (newChat) => {
-      setChats(prev => [newChat, ...prev]);
-      toast.success('New support request received!');
+      // Only show chats that have been escalated to human support
+      if (newChat.is_ai_active === false) {
+        setChats(prev => [newChat, ...prev]);
+        toast.success('New support request received!');
+      }
     },
     onUpdate: (updatedChat) => {
-      setChats(prev => prev.map(chat =>
-        chat.id === updatedChat.id ? updatedChat : chat
-      ));
+      // If a chat was just escalated from AI to human, add it to the list
+      if (updatedChat.is_ai_active === false) {
+        setChats(prev => {
+          const exists = prev.some(chat => chat.id === updatedChat.id);
+          if (exists) {
+            return prev.map(chat => chat.id === updatedChat.id ? updatedChat : chat);
+          }
+          // Newly escalated chat — add it
+          toast.success('Customer escalated from AI — new support request!');
+          return [updatedChat, ...prev];
+        });
+      } else {
+        setChats(prev => prev.map(chat =>
+          chat.id === updatedChat.id ? updatedChat : chat
+        ));
+      }
     },
     onDelete: (deletedChat) => {
       setChats(prev => prev.filter(chat => chat.id !== deletedChat.id));
@@ -89,13 +105,17 @@ export function useServerlessAdminChats() {
 
       console.log('📋 Admin: Fetched chats:', chats?.length || 0);
 
-      // Load messages for each chat
-      const chatsWithMessages = await Promise.all((chats || []).map(async (chat) => {
+      // Filter out chats that are still AI-only (not escalated to human)
+      const escalatedChats = (chats || []).filter(chat => chat.is_ai_active === false);
+
+      // Load messages for each chat, excluding AI messages
+      const chatsWithMessages = await Promise.all(escalatedChats.map(async (chat) => {
         try {
           const { data: messages, error: messagesError } = await supabase
             .from('chat_messages')
             .select('*')
             .eq('chat_id', chat.id)
+            .neq('sender_type', 'ai')
             .order('sent_at', { ascending: true });
 
           if (messagesError) {
@@ -154,20 +174,13 @@ export function useServerlessAdminChats() {
             chat_id: newMessage.chat_id
           });
 
-          // Only process customer messages (admin messages are handled optimistically)
+          // Process customer messages via real-time (admin messages are handled optimistically, AI messages hidden from admin)
           if (newMessage.sender_type === 'customer') {
-            console.log('👤 Admin: Adding customer message to chat');
-
             setChats(prev => prev.map(chat => {
               if (chat.id === newMessage.chat_id) {
-                // Check if message already exists to prevent duplicates
                 const messageExists = chat.messages.some(msg => msg.id === newMessage.id);
-                if (messageExists) {
-                  console.log('⚠️ Admin: Message already exists, skipping');
-                  return chat;
-                }
+                if (messageExists) return chat;
 
-                console.log('✅ Admin: Adding new customer message');
                 return {
                   ...chat,
                   messages: [...(chat.messages || []), newMessage as AdminChat['messages'][number]],
@@ -176,8 +189,6 @@ export function useServerlessAdminChats() {
               }
               return chat;
             }));
-          } else {
-            console.log('👨‍💼 Admin: Admin message (handled optimistically)');
           }
         }
       )
@@ -191,13 +202,14 @@ export function useServerlessAdminChats() {
     };
   }, [user]);
 
-  // Load messages for a specific chat
+  // Load messages for a specific chat (excluding AI messages)
   const loadMessages = useCallback(async (chatId: string) => {
     try {
       const { data: messages, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('chat_id', chatId)
+        .neq('sender_type', 'ai')
         .order('sent_at', { ascending: true });
 
       if (error) throw error;

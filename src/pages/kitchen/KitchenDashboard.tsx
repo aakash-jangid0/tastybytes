@@ -69,15 +69,8 @@ function KitchenDashboard() {
   useEffect(() => {
     fetchOrders();
     const subscription = setupRealtimeSubscription();
-    
-    // Set up automatic refresh every 5 seconds
-    const intervalId = setInterval(() => {
-      fetchOrders();
-    }, 5000);
-    
     return () => {
       subscription?.unsubscribe();
-      clearInterval(intervalId);
     };
   }, []);
 
@@ -95,7 +88,7 @@ function KitchenDashboard() {
 
   const setupRealtimeSubscription = () => {
     return supabase
-      .channel('orders_channel')
+      .channel('kitchen_orders_channel')
       .on(
         'postgres_changes',
         {

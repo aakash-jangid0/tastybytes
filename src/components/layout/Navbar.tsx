@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingCart, User, Menu as MenuIcon, LogOut, Clock, X } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { useWebsiteSettings } from '../../contexts/WebsiteSettingsContext';
+import { useWebsiteSettings } from '../../context/WebsiteSettingsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function Navbar() {

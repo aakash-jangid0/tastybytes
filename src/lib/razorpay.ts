@@ -1,22 +1,9 @@
 import { loadScript } from '../utils/loadScript';
 import { RazorpayResponse } from '../types/payment';
 
-// Get environment variables safely for both Vite and Node.js environments
-const getEnv = (key: string, defaultValue: string): string => {
-  // Check for Vite's import.meta.env first
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    const value = import.meta.env[key];
-    if (value) return value;
-  }
-  
-  // Fall back to default value
-  return defaultValue;
-};
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_OjVlCpSLytdwMx';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-// Using the provided test credentials
-const RAZORPAY_KEY = getEnv('VITE_RAZORPAY_KEY_ID', 'rzp_test_OjVlCpSLytdwMx');
-
-// Declare Razorpay interface for window object
 declare global {
   interface Window {
     Razorpay: new (options: unknown) => {
@@ -47,61 +34,18 @@ export const initializeRazorpay = async () => {
 };
 
 export const createRazorpayOrder = async (amount: number, orderId?: string) => {
-  try {
-    console.log('Creating Razorpay order with params:', { amount, orderId });
-    
-    // Validate inputs
-    if (!amount || amount <= 0) {
-      throw new Error('Invalid amount for Razorpay order');
-    }
-    
-    if (!orderId || orderId.trim() === '') {
-      throw new Error('Order ID is required for Razorpay payment');
-    }
-    
-    // Point to the Express server API route using the environment variable
-    const isDevelopment = import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
-    const API_URL = isDevelopment 
-      ? (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
-      : `${window.location.origin}/api`;
-    const endpoint = `${API_URL}/razorpay/create-order`;
-    console.log('Sending request to Razorpay API endpoint:', endpoint);
-    
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ amount, orderId }),
-      credentials: 'include', // Include cookies for CORS
-    });
+  if (!amount || amount <= 0) throw new Error('Invalid amount for Razorpay order');
+  if (!orderId?.trim()) throw new Error('Order ID is required for Razorpay payment');
 
-    if (!response.ok) {
-      console.error('Razorpay order API returned error status:', response.status);
-      const errorText = await response.text();
-      console.error('Error response body:', errorText);
-      
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-        console.error('Parsed error data:', errorData);
-      } catch {
-        // If not valid JSON, use the text as is
-        console.error('Could not parse error response as JSON');
-        throw new Error(`API error: ${errorText || 'Failed to create order'}`);
-      }
-      
-      throw new Error(errorData.error || 'Failed to create order');
-    }
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/create-razorpay-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount, orderId }),
+  });
 
-    const orderData = await response.json();
-    console.log('Razorpay order created successfully:', orderData);
-    return orderData;
-  } catch (error) {
-    console.error('Error creating Razorpay order:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to create payment order';
-    throw new Error(errorMessage);
-  }
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to create order');
+  return data;
 };
 
 export const openRazorpayCheckout = (options: RazorpayOptions): Promise<RazorpayResponse> => {
@@ -117,7 +61,6 @@ export const openRazorpayCheckout = (options: RazorpayOptions): Promise<Razorpay
         prefill: options.prefill || {},
         theme: options.theme || { color: '#F97316' },
         handler: (response: RazorpayResponse) => {
-          // Validate that required fields are present
           if (!response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
             reject(new Error('Invalid payment response'));
             return;
@@ -125,15 +68,11 @@ export const openRazorpayCheckout = (options: RazorpayOptions): Promise<Razorpay
           resolve(response);
         },
         modal: {
-          ondismiss: () => {
-            reject(new Error('Payment cancelled by user'));
-          },
+          ondismiss: () => reject(new Error('Payment cancelled by user')),
           escape: true,
           animation: true,
         },
-        notes: {
-          order_id: options.orderId,
-        }
+        notes: { order_id: options.orderId },
       });
 
       rzp.on('payment.failed', (response: { error: { description?: string } }) => {

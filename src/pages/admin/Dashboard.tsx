@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Coffee, ClipboardList, Boxes, UserCog, Heart, 
+  LayoutDashboard, Coffee, ClipboardList, UserCog, Heart, 
   MessageSquare, Ticket, FileText, Globe, QrCode, 
   Coins, Users, TrendingUp, HelpCircle, 
   Package, ChefHat, Bell
@@ -40,8 +41,7 @@ function Dashboard() {
     averageOrderValue: 294,
     activeCustomers: 42,
     totalStaff: 12,
-    inventoryItems: 86,
-    lowStockItems: 8,
+
     pendingFeedback: 15
   });
   const [notifications] = useState([]);
@@ -110,7 +110,7 @@ function Dashboard() {
     { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/menu', icon: Coffee, label: 'Menu' },
     { path: '/admin/orders', icon: ClipboardList, label: 'Orders' },
-    { path: '/admin/inventory', icon: Boxes, label: 'Inventory' },
+
     { path: '/admin/staff', icon: UserCog, label: 'Staff' },
     { path: '/admin/customers', icon: Heart, label: 'Customers' },
     { path: '/admin/feedback', icon: MessageSquare, label: 'Feedback' },
@@ -214,14 +214,7 @@ function Dashboard() {
                   color="bg-indigo-500"
                   subtitle="Active employees"
                 />
-                <StatCard
-                  title="Inventory Items"
-                  value={stats.inventoryItems}
-                  icon={Boxes}
-                  trend={-8}
-                  color="bg-yellow-500"
-                  subtitle={`${stats.lowStockItems} low stock items`}
-                />
+
                 <StatCard
                   title="Pending Feedback"
                   value={stats.pendingFeedback}
@@ -300,7 +293,9 @@ function Dashboard() {
               </div>
             </motion.div>
           ) : (
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           )}
         </AnimatePresence>
       </div>
