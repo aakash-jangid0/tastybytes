@@ -4,6 +4,7 @@ import { Clock, Package, Phone, AlertTriangle, Download, FileText, Printer, Refr
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { viewOrDownloadInvoice, fetchInvoiceByOrderId, printInvoice } from '../../utils/invoiceUtils';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 interface OrderItem {
   id: string;
@@ -27,6 +28,7 @@ interface Order {
 }
 
 function OrderManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);

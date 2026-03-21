@@ -8,8 +8,10 @@ import {
 import { useServerlessAdminChats, type AdminChat as Chat } from '../../hooks/useServerlessAdminChats';
 import { formatDistanceToNow, format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 const CustomerSupport: React.FC = () => {
+  const { isGuest, guardAction } = useGuestGuard();
   const {
     chats,
     isLoading,
@@ -498,8 +500,9 @@ const CustomerSupport: React.FC = () => {
 
                     {selectedChat.status === 'active' && (
                       <motion.button
-                        onClick={() => handleResolveChat(selectedChat.id)}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 shadow-lg flex items-center space-x-2"
+                        onClick={() => guardAction(() => handleResolveChat(selectedChat.id))}
+                        disabled={isGuest}
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 shadow-lg flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
@@ -654,9 +657,9 @@ const CustomerSupport: React.FC = () => {
                       </div>
                       <motion.button
                         type="submit"
-                        disabled={!newMessage.trim()}
-                        whileHover={{ scale: newMessage.trim() ? 1.1 : 1, rotate: newMessage.trim() ? 15 : 0 }}
-                        whileTap={{ scale: newMessage.trim() ? 0.9 : 1 }}
+                        disabled={!newMessage.trim() || isGuest}
+                        whileHover={{ scale: newMessage.trim() && !isGuest ? 1.1 : 1, rotate: newMessage.trim() && !isGuest ? 15 : 0 }}
+                        whileTap={{ scale: newMessage.trim() && !isGuest ? 0.9 : 1 }}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full p-4 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl disabled:shadow-none hover:shadow-2xl flex items-center justify-center"
                       >
                         <Send className="w-6 h-6" />

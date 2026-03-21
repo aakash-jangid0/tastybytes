@@ -21,6 +21,7 @@ import {
   CustomField
 } from '../../types/invoiceSettings';
 import { Invoice } from '../../types/invoice';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 // Mock invoice data for preview
 const sampleInvoiceData: Invoice = {
@@ -78,6 +79,7 @@ const sampleInvoiceData: Invoice = {
 
 // Main component
 export default function InvoiceTemplateSettings() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [settings, setSettings] = useState<InvoiceSettings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -376,9 +378,9 @@ export default function InvoiceTemplateSettings() {
             <span>{previewLoading ? 'Generating...' : 'Preview'}</span>
           </button>
           <button
-            onClick={saveSettings}
-            disabled={saving}
-            className="px-4 py-2 bg-orange-500 text-white rounded-md flex items-center space-x-1 hover:bg-orange-600 transition"
+            onClick={() => guardAction(() => saveSettings())}
+            disabled={saving || isGuest}
+            className="px-4 py-2 bg-orange-500 text-white rounded-md flex items-center space-x-1 hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={18} />
             <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -1035,11 +1037,12 @@ export default function InvoiceTemplateSettings() {
             <h3 className="text-md font-medium mb-2">Template Management</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
-                onClick={() => {
+                onClick={() => guardAction(() => {
                   setSettings(defaultInvoiceSettings as InvoiceSettings);
                   toast.success('Settings reset to defaults');
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition"
+                })}
+                disabled={isGuest}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reset to Default Settings
               </button>
@@ -1356,11 +1359,12 @@ export default function InvoiceTemplateSettings() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
+                    onClick={() => guardAction(() => {
                       const updatedFields = (settings.custom_fields || []).filter((_, i) => i !== index);
                       setSettings(prev => prev ? { ...prev, custom_fields: updatedFields } : prev);
-                    }}
-                    className="text-red-500 hover:text-red-700"
+                    })}
+                    disabled={isGuest}
+                    className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Remove
                   </button>
@@ -1369,7 +1373,7 @@ export default function InvoiceTemplateSettings() {
             </div>
             
             {/* Add a simplified way to add custom fields */}            <button
-              onClick={() => {
+              onClick={() => guardAction(() => {
                 const newField: CustomField = {
                   id: `field-${Date.now()}`,
                   label: `Custom Field ${(settings.custom_fields || []).length + 1}`,
@@ -1378,7 +1382,7 @@ export default function InvoiceTemplateSettings() {
                   field_type: 'text',
                   is_visible: true
                 };
-                
+
                 setSettings(prev => {
                   if (!prev) return prev;
                   const currentFields = prev.custom_fields || [];
@@ -1387,10 +1391,11 @@ export default function InvoiceTemplateSettings() {
                     custom_fields: [...currentFields, newField]
                   };
                 });
-                
+
                 toast.success('Custom field added. Edit it in the interface after saving.');
-              }}
-              className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition"
+              })}
+              disabled={isGuest}
+              className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add Custom Field
             </button>

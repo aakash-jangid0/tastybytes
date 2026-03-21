@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend, Sector
 } from 'recharts';
 import { ChevronDown, ChevronUp, BarChart2, PieChart as PieChartIcon, LineChart as LineChartIcon } from 'lucide-react';
+import { useGuest } from '../../../context/GuestContext';
 
 interface Coupon {
   id: number;
@@ -57,16 +58,19 @@ const renderActiveShape = (props: any) => {
 };
 
 function CouponAnalytics({ coupons }: CouponAnalyticsProps) {
+  const { isGuest } = useGuest();
   const [activeIndex, setActiveIndex] = useState(0);
   const [showAnalytics, setShowAnalytics] = useState(true);
   const [activeTab, setActiveTab] = useState('usage');
-  
+
+  const maskCode = (code: string) => isGuest ? '••••••••' : code;
+
   // Sort coupons by usage count in descending order and take top 5
   const topUsedCoupons = [...coupons]
     .sort((a, b) => b.usage_count - a.usage_count)
     .slice(0, 5)
     .map(coupon => ({
-      name: coupon.code,
+      name: maskCode(coupon.code),
       uses: coupon.usage_count,
       value: coupon.discount_type === 'percentage' 
         ? `${coupon.discount_value}%` 
@@ -92,7 +96,7 @@ function CouponAnalytics({ coupons }: CouponAnalyticsProps) {
     .sort((a, b) => (b.usage_count / (b.usage_limit || 1)) - (a.usage_count / (a.usage_limit || 1)))
     .slice(0, 5)
     .map(c => ({
-      name: c.code,
+      name: maskCode(c.code),
       efficiency: ((c.usage_count / (c.usage_limit || 1)) * 100).toFixed(1),
       used: c.usage_count,
       limit: c.usage_limit

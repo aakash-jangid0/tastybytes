@@ -7,9 +7,10 @@ interface CustomerCardProps {
   onEdit: (customer: Customer) => void;
   onView?: (customerId: string) => void;
   onStatusChange: (id: string, status: Customer['status']) => void;
+  isGuest?: boolean;
 }
 
-export default function CustomerCard({ customer, onEdit, onView, onStatusChange }: CustomerCardProps) {
+export default function CustomerCard({ customer, onEdit, onView, onStatusChange, isGuest }: CustomerCardProps) {
   return (
     <div 
       className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md cursor-pointer transition-shadow"
@@ -28,11 +29,12 @@ export default function CustomerCard({ customer, onEdit, onView, onStatusChange 
         <select
           value={customer.status}
           onChange={(e) => onStatusChange(customer.id, e.target.value as Customer['status'])}
+          disabled={isGuest}
           className={`text-sm rounded-full px-3 py-1 ${
             customer.status === 'active' ? 'bg-green-100 text-green-800' :
             customer.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
             'bg-red-100 text-red-800'
-          }`}
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -61,7 +63,8 @@ export default function CustomerCard({ customer, onEdit, onView, onStatusChange 
             e.stopPropagation();
             onEdit(customer);
           }}
-          className="text-sm text-blue-600 hover:text-blue-800"
+          disabled={isGuest}
+          className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Edit Details
         </button>

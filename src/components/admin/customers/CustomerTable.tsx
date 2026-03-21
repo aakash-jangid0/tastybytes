@@ -10,6 +10,7 @@ interface CustomerTableProps {
   onEdit: (customer: Customer) => void;
   onView?: (customerId: string) => void;
   onStatusChange: (customerId: string, newStatus: Customer['status']) => void;
+  isGuest?: boolean;
   filters: {
     search: string;
     status: string;
@@ -28,6 +29,7 @@ export default function CustomerTable({
   onEdit,
   onView,
   onStatusChange,
+  isGuest,
   filters,
   view
 }: CustomerTableProps) {
@@ -150,19 +152,21 @@ export default function CustomerTable({
                     e.stopPropagation();
                     onEdit(customer);
                   }}
-                  className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                  disabled={isGuest}
+                  className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Edit2 size={16} />
                 </button>
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onStatusChange(
-                      customer.id, 
+                      customer.id,
                       customer.status === 'active' ? 'inactive' : 'active'
                     );
                   }}
-                  className="p-1 hover:bg-gray-50 rounded"
+                  disabled={isGuest}
+                  className="p-1 hover:bg-gray-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {customer.status === 'active' ? <XCircle size={16} className="text-gray-500" /> : <CheckCircle size={16} className="text-green-500" />}
                 </button>
@@ -270,19 +274,21 @@ export default function CustomerTable({
                         e.stopPropagation();
                         onEdit(customer);
                       }}
-                      className="text-blue-600 hover:text-blue-900"
+                      disabled={isGuest}
+                      className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Edit2 size={16} />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onStatusChange(
-                          customer.id, 
+                          customer.id,
                           customer.status === 'active' ? 'inactive' : 'active'
                         );
                       }}
-                      className={customer.status === 'active' ? 'text-gray-500' : 'text-green-500'}
+                      disabled={isGuest}
+                      className={`${customer.status === 'active' ? 'text-gray-500' : 'text-green-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {customer.status === 'active' ? <XCircle size={16} /> : <CheckCircle size={16} />}
                     </button>

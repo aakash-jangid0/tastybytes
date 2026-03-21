@@ -9,6 +9,7 @@ import CouponFilterBar from '../../components/admin/coupons/CouponFilterBar';
 import ItemSelector from '../../components/admin/coupons/ItemSelector';
 import CategoryMultiSelector from '../../components/admin/coupons/CategoryMultiSelector';
 import BatchActions from '../../components/admin/coupons/BatchActions';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 interface Coupon {
   id: number;
@@ -47,6 +48,7 @@ interface CouponFormData {
 }
 
 function CouponManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [filteredCoupons, setFilteredCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -374,11 +376,12 @@ function CouponManagement() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Coupon Management</h1>
         <button
-          onClick={() => {
+          onClick={() => guardAction(() => {
             resetForm();
             setShowForm(true);
-          }}
-          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+          })}
+          disabled={isGuest}
+          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add New Coupon
@@ -717,7 +720,8 @@ function CouponManagement() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                disabled={isGuest}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {editingCoupon ? 'Update Coupon' : 'Create Coupon'}
               </button>
@@ -753,7 +757,7 @@ function CouponManagement() {
                 <div>
                   <div className="flex items-center mb-1">
                     <span className="bg-orange-100 text-orange-800 text-sm font-medium px-2.5 py-0.5 rounded mr-2">
-                      {coupon.code}
+                      {isGuest ? '••••••••' : coupon.code}
                     </span>
                     <span className={`text-sm font-medium px-2.5 py-0.5 rounded ${
                       coupon.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -770,14 +774,16 @@ function CouponManagement() {
               </div>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => handleEditCoupon(coupon)}
-                  className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                  onClick={() => guardAction(() => handleEditCoupon(coupon))}
+                  disabled={isGuest}
+                  className="p-1 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Edit className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => handleDeleteCoupon(coupon.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                  onClick={() => guardAction(() => handleDeleteCoupon(coupon.id))}
+                  disabled={isGuest}
+                  className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash className="w-5 h-5" />
                 </button>

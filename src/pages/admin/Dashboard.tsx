@@ -3,9 +3,9 @@ import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Coffee, ClipboardList, UserCog, Heart, 
-  MessageSquare, Ticket, FileText, Globe, QrCode, 
-  Coins, Users, TrendingUp, HelpCircle, 
+  LayoutDashboard, Coffee, ClipboardList, UserCog, Heart,
+  MessageSquare, Ticket, FileText, Globe, QrCode,
+  Coins, Users, TrendingUp, HelpCircle,
   Package, ChefHat, Bell
 } from 'lucide-react';
 import StatCard from '../../components/admin/dashboard/StatCard';
@@ -14,6 +14,7 @@ import OrderStatusChart from '../../components/admin/dashboard/OrderStatusChart'
 import ReportSelector from '../../components/admin/dashboard/ReportSelector';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import DashboardHeader from '../../components/common/DashboardHeader';
 
 const dailyData = [
   { name: '12 AM', revenue: 1200 },
@@ -122,7 +123,11 @@ function Dashboard() {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Dashboard Auth Header */}
+      <DashboardHeader dashboardType="admin" />
+
+      <div className="flex flex-1 overflow-hidden">
       {/* Sidebar */}
       <motion.div
         initial={{ x: -250 }}
@@ -298,6 +303,7 @@ function Dashboard() {
             </ErrorBoundary>
           )}
         </AnimatePresence>
+      </div>
       </div>
     </div>
   );

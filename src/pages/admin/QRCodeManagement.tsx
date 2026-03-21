@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { toast } from 'react-hot-toast';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 interface QRCode {
   id: string;
@@ -13,6 +14,7 @@ interface QRCode {
 }
 
 function QRCodeManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [qrCodes, setQRCodes] = useState<QRCode[]>([]);
   const [tableNumber, setTableNumber] = useState('');
   const [bulkStart, setBulkStart] = useState('');
@@ -212,8 +214,9 @@ function QRCodeManagement() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={generateQRCode}
-              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              onClick={() => guardAction(() => generateQRCode())}
+              disabled={isGuest}
+              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5 mr-2" />
               Generate
@@ -242,8 +245,9 @@ function QRCodeManagement() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={generateBulkQRCodes}
-              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              onClick={() => guardAction(() => generateBulkQRCodes())}
+              disabled={isGuest}
+              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Upload className="w-5 h-5 mr-2" />
               Generate Bulk
@@ -283,8 +287,9 @@ function QRCodeManagement() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => deleteQRCode(qr.id)}
-                  className="flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  onClick={() => guardAction(() => deleteQRCode(qr.id))}
+                  disabled={isGuest}
+                  className="flex items-center px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete

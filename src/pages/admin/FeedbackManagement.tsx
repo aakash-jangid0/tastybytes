@@ -6,6 +6,7 @@ import {
   User, XCircle, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 interface ItemFeedback {
   item_name: string;
@@ -46,6 +47,7 @@ type FeedbackFilter = {
 };
 
 const FeedbackManagement = () => {
+  const { isGuest, guardAction } = useGuestGuard();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [filteredFeedbacks, setFilteredFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);

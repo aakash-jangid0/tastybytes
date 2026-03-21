@@ -13,8 +13,10 @@ import DocumentManagement from '../../components/admin/staff/DocumentManagement'
 
 // Import custom styles
 import './StaffManagement.css';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 export default function StaffManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [activeTab, setActiveTab] = useState('staff');
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -516,8 +518,9 @@ export default function StaffManagement() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => setShowForm(true)}
-                className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2"
+                onClick={() => guardAction(() => setShowForm(true))}
+                disabled={isGuest}
+                className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <UserPlus className="w-5 h-5" />
                 Add Staff

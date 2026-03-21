@@ -9,9 +9,10 @@ interface MenuTableProps {
   onDelete: (id: string) => void;
   onToggleAvailability: (id: string) => void;
   selectedCategory: string;
+  isGuest?: boolean;
 }
 
-function MenuTable({ items, onEdit, onDelete, onToggleAvailability, selectedCategory }: MenuTableProps) {
+function MenuTable({ items, onEdit, onDelete, onToggleAvailability, selectedCategory, isGuest }: MenuTableProps) {
   const filteredItems = selectedCategory === 'all' 
     ? items 
     : items.filter(item => item.category === selectedCategory);
@@ -66,30 +67,33 @@ function MenuTable({ items, onEdit, onDelete, onToggleAvailability, selectedCate
                   <td className="px-6 py-4">
                     <div className="flex space-x-2">
                       <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
+                        whileHover={isGuest ? {} : { scale: 1.1 }}
+                        whileTap={isGuest ? {} : { scale: 0.9 }}
                         onClick={() => onEdit(item)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
+                        disabled={isGuest}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Pencil className="w-5 h-5" />
                       </motion.button>
                       <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
+                        whileHover={isGuest ? {} : { scale: 1.1 }}
+                        whileTap={isGuest ? {} : { scale: 0.9 }}
                         onClick={() => onToggleAvailability(item.id)}
+                        disabled={isGuest}
                         className={`p-2 ${
-                          item.isAvailable 
-                            ? 'text-yellow-600 hover:bg-yellow-50' 
+                          item.isAvailable
+                            ? 'text-yellow-600 hover:bg-yellow-50'
                             : 'text-green-600 hover:bg-green-50'
-                        } rounded-full`}
+                        } rounded-full disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         {item.isAvailable ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </motion.button>
                       <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
+                        whileHover={isGuest ? {} : { scale: 1.1 }}
+                        whileTap={isGuest ? {} : { scale: 0.9 }}
                         onClick={() => onDelete(item.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-full"
+                        disabled={isGuest}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Trash2 className="w-5 h-5" />
                       </motion.button>

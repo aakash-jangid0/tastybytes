@@ -30,8 +30,10 @@ import { WebsiteSettingsProvider } from '../../context/WebsiteSettingsContext';
 import ImageUpload from '../../components/ui/ImageUpload';
 import { useMenuItems } from '../../hooks/useMenuItems';
 import { MenuItem } from '../../types/menu';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 function WebsiteSettingsComprehensive() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [showMenuSelector, setShowMenuSelector] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
@@ -457,9 +459,9 @@ function WebsiteSettingsComprehensive() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                onClick={() => guardAction(() => handleSave())}
+                disabled={isSaving || isGuest}
+                className="flex items-center px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5 mr-2" />
                 {isSaving ? 'Saving...' : 'Save Changes'}

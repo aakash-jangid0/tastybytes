@@ -277,7 +277,8 @@ export const viewOrDownloadInvoice = async (orderId: string, order: any, downloa
     if (download) {
       await pdfDoc.save(`invoice-${invoice.invoice_number}.pdf`);
     } else {
-      await pdfDoc.output('dataurlnewwindow');
+      const blobUrl = pdfDoc.output('bloburl');
+      window.open(blobUrl, '_blank');
     }
   } else {
     // Generate a new invoice if not found in the database
@@ -316,18 +317,20 @@ export const viewOrDownloadInvoice = async (orderId: string, order: any, downloa
       if (download) {
         await pdfDoc.save(`invoice-${invoiceData.invoiceNumber}.pdf`);
       } else {
-        await pdfDoc.output('dataurlnewwindow');
+        const blobUrl = pdfDoc.output('bloburl');
+        window.open(blobUrl, '_blank');
       }
     } catch (error) {
       console.error('Error processing invoice:', error);
-      
+
       // Fall back to just generating the PDF without saving to database
       const pdfDoc = await generateInvoiceDoc(invoiceData);
-      
+
       if (download) {
         await pdfDoc.save(`invoice-${invoiceData.invoiceNumber}.pdf`);
       } else {
-        await pdfDoc.output('dataurlnewwindow');
+        const blobUrl = pdfDoc.output('bloburl');
+        window.open(blobUrl, '_blank');
       }
     }
   }

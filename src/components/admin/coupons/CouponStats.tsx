@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Tag, Percent, Coins, CalendarClock } from 'lucide-react';
+import { useGuest } from '../../../context/GuestContext';
 
 interface Coupon {
   id: number;
@@ -23,6 +24,7 @@ interface CouponStatsProps {
 }
 
 function CouponStats({ coupons }: CouponStatsProps) {
+  const { isGuest } = useGuest();
   // Calculate stats
   const activeCoupons = coupons.filter(coupon => coupon.is_active).length;
   
@@ -108,7 +110,7 @@ function CouponStats({ coupons }: CouponStatsProps) {
             <p className="text-sm text-gray-500">Most Used Coupon</p>
             {mostUsedCoupon ? (
               <>
-                <p className="text-lg font-semibold">{mostUsedCoupon.code}</p>
+                <p className="text-lg font-semibold">{isGuest ? '••••••••' : mostUsedCoupon.code}</p>
                 <p className="text-sm text-gray-500">{mostUsedCoupon.usage_count} uses</p>
               </>
             ) : (

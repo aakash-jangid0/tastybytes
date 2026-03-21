@@ -13,6 +13,7 @@ import { MenuItem } from '../../types/menu';
 import { Category } from '../../types/category';
 import { supabase } from '../../lib/supabase';
 import * as LucideIcons from 'lucide-react';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -26,6 +27,7 @@ const preloadImage = (src: string): Promise<void> => {
 };
 
 function MenuManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   // Initialize with an empty array instead of mock data
   const [items, setItems] = useState<MenuItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -375,8 +377,9 @@ function MenuManagement() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setShowCategoryManager(!showCategoryManager)}
-            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            onClick={() => guardAction(() => setShowCategoryManager(!showCategoryManager))}
+            disabled={isGuest}
+            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Layers className="w-5 h-5 mr-2" />
             {showCategoryManager ? 'Hide Categories' : 'Manage Categories'}
@@ -384,7 +387,7 @@ function MenuManagement() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => {
+            onClick={() => guardAction(() => {
               setEditingItem(null);
               setFormData({
                 name: '',
@@ -397,8 +400,9 @@ function MenuManagement() {
               });
               setImagePreview('');
               setIsModalOpen(true);
-            }}
-            className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            })}
+            disabled={isGuest}
+            className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Item
@@ -451,10 +455,11 @@ function MenuManagement() {
               >
                 <MenuTable
                   items={[item]}
-                  onEdit={setEditingItem}
-                  onDelete={handleDelete}
-                  onToggleAvailability={handleToggleAvailability}
+                  onEdit={(item) => guardAction(() => setEditingItem(item))}
+                  onDelete={(id) => guardAction(() => handleDelete(id))}
+                  onToggleAvailability={(id) => guardAction(() => handleToggleAvailability(id))}
                   selectedCategory={selectedCategory}
+                  isGuest={isGuest}
                 />
               </div>
             );
@@ -632,7 +637,8 @@ function MenuManagement() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                    disabled={isGuest}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {editingItem ? 'Update' : 'Add'} Item
                   </motion.button>

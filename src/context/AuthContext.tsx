@@ -10,6 +10,9 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithPhone: (phone: string) => Promise<void>;
+  verifyOtp: (phone: string, token: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) throw error;
-      
+
       if (data.user) {
         // Create a customer record with phone number
         if (phone) {
@@ -78,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               phone
             });
         }
-        
+
         toast.success('Account created successfully!');
       }
     } catch (error: any) {
@@ -95,12 +98,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) throw error;
-      
+
       if (data.user) {
         toast.success('Logged in successfully!');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in');
+      throw error;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign in with Google');
+      throw error;
+    }
+  };
+
+  const signInWithPhone = async (phone: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone
+      });
+
+      if (error) throw error;
+
+      toast.success('OTP sent to your phone!');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send OTP');
+      throw error;
+    }
+  };
+
+  const verifyOtp = async (phone: string, token: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms'
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast.success('Phone verified successfully!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Invalid OTP');
       throw error;
     }
   };
@@ -124,7 +177,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signIn,
       signUp,
-      signOut
+      signOut,
+      signInWithGoogle,
+      signInWithPhone,
+      verifyOtp
     }}>
       {children}
     </AuthContext.Provider>

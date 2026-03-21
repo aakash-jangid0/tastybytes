@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Clock, AlertCircle, CheckCircle2, Timer, ChefHat, Search, 
+import {
+  Clock, AlertCircle, CheckCircle2, Timer, ChefHat, Search,
   User, Phone, MapPin, AlertTriangle,
   CheckCircle, XCircle, Clock4, Utensils, Check
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import { 
-  Dialog, 
+import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter
 } from '../../components/ui/dialog.jsx';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
+import DashboardHeader from '../../components/common/DashboardHeader';
 
 interface OrderItem {
   id: string;
@@ -48,6 +50,7 @@ interface Order {
 }
 
 function KitchenDashboard() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -307,6 +310,9 @@ function KitchenDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Dashboard Auth Header */}
+      <DashboardHeader dashboardType="kitchen" />
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -580,18 +586,20 @@ function KitchenDashboard() {
                               
                               {item.preparation_status === 'not_started' && (
                                 <button
-                                  onClick={() => updateItemStatus(order.id, item.id, 'in_progress')}
-                                  className="ml-auto px-2.5 py-1.5 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 transition-colors flex items-center shadow-sm"
-                                  title="Start preparation"
+                                  onClick={() => guardAction(() => updateItemStatus(order.id, item.id, 'in_progress'))}
+                                  disabled={isGuest}
+                                  className="ml-auto px-2.5 py-1.5 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 transition-colors flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={isGuest ? 'Login to perform this action' : 'Start preparation'}
                                 >
                                   <Clock4 className="w-4 h-4" />
                                 </button>
                               )}
                               {item.preparation_status === 'in_progress' && (
                                 <button
-                                  onClick={() => updateItemStatus(order.id, item.id, 'completed')}
-                                  className="ml-auto px-2.5 py-1.5 bg-emerald-500 text-white rounded-r-md hover:bg-emerald-600 transition-colors flex items-center shadow-sm"
-                                  title="Mark as done"
+                                  onClick={() => guardAction(() => updateItemStatus(order.id, item.id, 'completed'))}
+                                  disabled={isGuest}
+                                  className="ml-auto px-2.5 py-1.5 bg-emerald-500 text-white rounded-r-md hover:bg-emerald-600 transition-colors flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={isGuest ? 'Login to perform this action' : 'Mark as done'}
                                 >
                                   <CheckCircle className="w-4 h-4" />
                                 </button>
@@ -610,9 +618,10 @@ function KitchenDashboard() {
                       <div className="flex-none flex flex-row md:flex-col gap-1.5 self-center ml-auto">
                         {order.status === 'pending' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'preparing')}
-                            className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm"
-                            title="Start preparing this order"
+                            onClick={() => guardAction(() => updateOrderStatus(order.id, 'preparing'))}
+                            disabled={isGuest}
+                            className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isGuest ? 'Login to perform this action' : 'Start preparing this order'}
                           >
                             <Timer className="w-4 h-4" />
                             <span>Start</span>
@@ -620,9 +629,10 @@ function KitchenDashboard() {
                         )}
                         {order.status === 'preparing' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'ready')}
-                            className="px-3 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm"
-                            title="Mark this order as ready"
+                            onClick={() => guardAction(() => updateOrderStatus(order.id, 'ready'))}
+                            disabled={isGuest}
+                            className="px-3 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isGuest ? 'Login to perform this action' : 'Mark this order as ready'}
                           >
                             <CheckCircle2 className="w-4 h-4" />
                             <span>Ready</span>
@@ -630,9 +640,10 @@ function KitchenDashboard() {
                         )}
                         {order.status === 'ready' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'delivered')}
-                            className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm"
-                            title="Mark this order as delivered"
+                            onClick={() => guardAction(() => updateOrderStatus(order.id, 'delivered'))}
+                            disabled={isGuest}
+                            className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isGuest ? 'Login to perform this action' : 'Mark this order as delivered'}
                           >
                             <Check className="w-4 h-4" />
                             <span>Deliver</span>
@@ -640,12 +651,13 @@ function KitchenDashboard() {
                         )}
                         {order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <button
-                            onClick={() => {
+                            onClick={() => guardAction(() => {
                               setOrderToCancel(order.id);
                               setCancelDialogOpen(true);
-                            }}
-                            className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm"
-                            title="Cancel this order"
+                            })}
+                            disabled={isGuest}
+                            className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={isGuest ? 'Login to perform this action' : 'Cancel this order'}
                           >
                             <XCircle className="w-4 h-4" />
                             <span>Cancel</span>

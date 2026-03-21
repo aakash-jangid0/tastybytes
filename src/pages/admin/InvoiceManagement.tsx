@@ -7,8 +7,10 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Invoice } from '../../types/invoice';
 import { emailInvoice, printInvoice, viewOrDownloadInvoice } from '../../utils/invoiceUtils';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 export default function InvoiceManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -443,8 +445,9 @@ export default function InvoiceManagement() {
                           {editingInvoice === invoice.id ? (
                             <>
                               <button
-                                onClick={() => handleSaveEdit(invoice.id)}
-                                className="text-green-600 hover:text-green-900"
+                                onClick={() => guardAction(() => handleSaveEdit(invoice.id))}
+                                disabled={isGuest}
+                                className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Save changes"
                               >
                                 <Save className="w-5 h-5" />
@@ -460,8 +463,9 @@ export default function InvoiceManagement() {
                           ) : (
                             <>
                               <button
-                                onClick={() => handleEditInvoice(invoice)}
-                                className="text-blue-600 hover:text-blue-900"
+                                onClick={() => guardAction(() => handleEditInvoice(invoice))}
+                                disabled={isGuest}
+                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Edit invoice"
                               >
                                 <Edit className="w-5 h-5" />
@@ -481,13 +485,14 @@ export default function InvoiceManagement() {
                                 <Download className="w-5 h-5" />
                               </button>
                               <button
-                                onClick={() => {
+                                onClick={() => guardAction(() => {
                                   setSelectedInvoice(invoice);
                                   setEmailAddress(invoice.customer_email || '');
                                   setEmailError('');
                                   setEmailModalOpen(true);
-                                }}
-                                className="text-green-600 hover:text-green-900"
+                                })}
+                                disabled={isGuest}
+                                className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Email invoice"
                               >
                                 <Mail className="w-5 h-5" />
@@ -561,8 +566,9 @@ export default function InvoiceManagement() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleEmailInvoice(selectedInvoice)}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                  onClick={() => guardAction(() => handleEmailInvoice(selectedInvoice))}
+                  disabled={isGuest}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Send
                 </button>

@@ -382,7 +382,7 @@ const generateClassicTemplate = (doc: jsPDF, data: InvoiceData, settings: Invoic
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text('Sub-Total:', pageWidth - 44, cursorY);
-  doc.text('₹' + data.subtotal.toFixed(2), pageWidth - 12, cursorY, { align: 'right' });
+  doc.text('Rs' + data.subtotal.toFixed(2), pageWidth - 12, cursorY, { align: 'right' });
   cursorY += 5;
 
   // Add coupon discount if present
@@ -414,8 +414,8 @@ const generateClassicTemplate = (doc: jsPDF, data: InvoiceData, settings: Invoic
     
     // Format the display text based on discount type
     const discountText = data.coupon_discount_type === 'percentage'
-      ? '-' + data.coupon_discount_value + '% (₹' + (discountAmount?.toFixed(2) || '0.00') + ')'
-      : '₹' + (discountAmount?.toFixed(2) || '0.00');
+      ? '-' + data.coupon_discount_value + '% (Rs' + (discountAmount?.toFixed(2) || '0.00') + ')'
+      : 'Rs' + (discountAmount?.toFixed(2) || '0.00');
     
     doc.text(discountText, pageWidth - 12, cursorY, { align: 'right' });
     cursorY += 5;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Package, Clock, User, Box, Coins, Plus, Minus, Trash2, AlertCircle, Phone, X, 
+import { Search, Package, Clock, User, Box, Coins, Plus, Minus, Trash2, AlertCircle, Phone, X,
   XCircle, Filter, RefreshCcw, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -10,8 +10,11 @@ import { useMenuItems } from '../../hooks/useMenuItems';
 import { calculateOrderTotals } from '../../utils/orderUtils';
 import { generateAndProcessInvoice } from '../../utils/orderInvoiceUtils';
 import { formatDistanceToNow } from 'date-fns';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
+import DashboardHeader from '../../components/common/DashboardHeader';
 
 export default function CounterDashboard() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
@@ -418,6 +421,9 @@ export default function CounterDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Dashboard Auth Header */}
+      <DashboardHeader dashboardType="counter" />
+
       {/* Header Stats */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-4">
@@ -541,8 +547,9 @@ export default function CounterDashboard() {
                     />
                   </div>
                   <button
-                    onClick={handleCustomerLookup}
-                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2"
+                    onClick={() => guardAction(handleCustomerLookup)}
+                    disabled={isGuest}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <User className="w-5 h-5" />
                     <span>Customer Lookup</span>
@@ -578,15 +585,15 @@ export default function CounterDashboard() {
                         </div>
                         <p className="text-sm text-gray-500 mb-4">{item.description}</p>
                         <button
-                          onClick={() => addOrderItem(item)}
-                          disabled={!item.isAvailable}
+                          onClick={() => guardAction(() => addOrderItem(item))}
+                          disabled={!item.isAvailable || isGuest}
                           className={`w-full py-2 rounded-lg ${
-                            item.isAvailable 
-                              ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            !item.isAvailable || isGuest
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-orange-500 text-white hover:bg-orange-600'
                           }`}
                         >
-                          {item.isAvailable ? 'Add to Order' : 'Unavailable'}
+                          {!item.isAvailable ? 'Unavailable' : isGuest ? 'Login to Add' : 'Add to Order'}
                         </button>
                       </div>
                     </motion.div>
@@ -740,30 +747,32 @@ export default function CounterDashboard() {
                               <div className="flex justify-end items-center space-x-2">
                                 {/* Payment Status Toggle */}
                                 <button
-                                  onClick={(e) => { 
+                                  onClick={(e) => {
                                     e.stopPropagation();
-                                    handlePaymentToggle(order.id, order.payment_status);
+                                    guardAction(() => handlePaymentToggle(order.id, order.payment_status));
                                   }}
-                                  className={`px-3 py-1 text-xs font-medium rounded border ${
-                                    order.payment_status === 'completed' || order.payment_status === 'paid' 
-                                      ? 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200' 
+                                  disabled={isGuest}
+                                  className={`px-3 py-1 text-xs font-medium rounded border disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    order.payment_status === 'completed' || order.payment_status === 'paid'
+                                      ? 'text-green-700 bg-green-50 hover:bg-green-100 border-green-200'
                                       : 'text-yellow-700 bg-yellow-50 hover:bg-yellow-100 border-yellow-200'
                                   }`}
-                                  title={order.payment_status === 'completed' || order.payment_status === 'paid' 
-                                    ? 'Mark as Unpaid' 
-                                    : 'Mark as Paid'
+                                  title={isGuest ? 'Login to perform this action' : (order.payment_status === 'completed' || order.payment_status === 'paid'
+                                    ? 'Mark as Unpaid'
+                                    : 'Mark as Paid')
                                   }
                                 >
                                   {order.payment_status === 'completed' || order.payment_status === 'paid' ? 'Paid' : 'Unpaid'}
                                 </button>
                                 {(order.status === 'pending' || order.status === 'preparing') && (
                                   <button
-                                    onClick={(e) => { 
+                                    onClick={(e) => {
                                       e.stopPropagation();
-                                      updateOrderStatus(order.id, 'cancelled');
+                                      guardAction(() => updateOrderStatus(order.id, 'cancelled'));
                                     }}
-                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                    title="Cancel Order"
+                                    disabled={isGuest}
+                                    className="p-1 text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={isGuest ? 'Login to perform this action' : 'Cancel Order'}
                                   >
                                     <XCircle className="w-4 h-4" />
                                   </button>
@@ -972,21 +981,24 @@ export default function CounterDashboard() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="p-1 hover:bg-gray-100 rounded"
+                            onClick={() => guardAction(() => updateQuantity(item.id, item.quantity - 1))}
+                            disabled={isGuest}
+                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Minus className="w-4 h-4" />
                           </button>
                           <span className="w-8 text-center">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="p-1 hover:bg-gray-100 rounded"
+                            onClick={() => guardAction(() => updateQuantity(item.id, item.quantity + 1))}
+                            disabled={isGuest}
+                            className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => updateQuantity(item.id, 0)}
-                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            onClick={() => guardAction(() => updateQuantity(item.id, 0))}
+                            disabled={isGuest}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1122,11 +1134,11 @@ export default function CounterDashboard() {
                 </div>
 
                 <button
-                  onClick={handleSubmit}
-                  disabled={isLoading || orderItems.length === 0 || !customerName || (orderType === 'dine-in' && !tableNumber)}
+                  onClick={() => guardAction(handleSubmit)}
+                  disabled={isLoading || isGuest || orderItems.length === 0 || !customerName || (orderType === 'dine-in' && !tableNumber)}
                   className="w-full py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Processing...' : 'Place Order'}
+                  {isLoading ? 'Processing...' : isGuest ? 'Login to Place Order' : 'Place Order'}
                 </button>
               </div>
             </div>

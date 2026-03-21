@@ -6,10 +6,12 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Category } from '../../types/category'; // Import the Category type
 import IconSelector from '../../components/admin/IconSelector';
 import DynamicIcon from '../../components/ui/DynamicIcon';
+import { useGuestGuard } from '../../hooks/useGuestGuard';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
 function CategoryManagement() {
+  const { isGuest, guardAction } = useGuestGuard();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -228,12 +230,13 @@ function CategoryManagement() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => {
+          onClick={() => guardAction(() => {
             setEditingCategory(null);
             resetForm();
             setIsModalOpen(true);
-          }}
-          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+          })}
+          disabled={isGuest}
+          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-5 h-5 mr-2" />
           Add Category
@@ -287,14 +290,16 @@ function CategoryManagement() {
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => handleEdit(category)}
-                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                                onClick={() => guardAction(() => handleEdit(category))}
+                                disabled={isGuest}
+                                className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Pencil className="w-5 h-5" />
                               </button>
                               <button
-                                onClick={() => handleDelete(category.id)}
-                                className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                onClick={() => guardAction(() => handleDelete(category.id))}
+                                disabled={isGuest}
+                                className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="w-5 h-5" />
                               </button>
@@ -400,8 +405,8 @@ function CategoryManagement() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-                    disabled={isLoading}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading || isGuest}
                   >
                     {isLoading ? 'Saving...' : editingCategory ? 'Update' : 'Add'}
                   </motion.button>
