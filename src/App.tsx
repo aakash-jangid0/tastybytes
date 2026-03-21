@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WebsiteSettingsProvider } from './context/WebsiteSettingsContext';
+import LenisProvider from './providers/LenisProvider';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -49,6 +50,7 @@ export default function App() {
         <CartProvider>
           <WebsiteSettingsProvider>
               <Router>
+              <LenisProvider>
                 <Toaster 
                   position="top-right"
                   toastOptions={{
@@ -157,6 +159,7 @@ export default function App() {
                   <Route path="website" element={<WebsiteSettingsComprehensive />} />
                 </Route>
               </Routes>
+            </LenisProvider>
             </Router>
           </WebsiteSettingsProvider>
         </CartProvider>

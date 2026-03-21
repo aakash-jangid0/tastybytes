@@ -6,6 +6,9 @@ import { motion } from 'framer-motion';
 import { useWebsiteSettings } from '../context/WebsiteSettingsContext';
 import { useMenuItems } from '../hooks/useMenuItems';
 
+// Spring transition for Apple-style feel
+const spring = { type: 'spring' as const, stiffness: 100, damping: 25 };
+
 // Icon mapping for features
 const iconMap = {
   UtensilsCrossed: <UtensilsCrossed className="w-6 h-6" />,
@@ -67,7 +70,7 @@ function Home() {
     <PageTransition>
       <div className="flex flex-col">
         {/* Hero Section */}
-        <div 
+        <div
           className="relative h-[80vh] sm:h-[600px] bg-cover bg-center"
           style={{
             backgroundImage: `url("${settings.hero_background_image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80'}")`
@@ -75,46 +78,58 @@ function Home() {
         >
           <div className="absolute inset-0 bg-black bg-opacity-50" />
           <div className="relative container mx-auto px-4 h-full flex items-center">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-white max-w-lg"
-            >
-              <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight">
-                {settings.hero_title || settings.site_name || 'Experience Fine Dining at Its Best'}
-              </h1>
-              <p className="text-lg sm:text-xl mb-8 text-gray-200">
-                {settings.hero_subtitle || settings.tagline || 'Discover our exquisite cuisine in an elegant dining atmosphere.'}
-              </p>
-              <Link
-                to={settings.hero_cta_link || "/menu"}
-                className="inline-flex items-center px-6 py-3 rounded-full text-lg font-semibold transition-colors"
-                style={{ 
-                  backgroundColor: settings.primary_color || '#f97316',
-                  color: 'white'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = settings.secondary_color || '#fb923c';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = settings.primary_color || '#f97316';
-                }}
+            <div className="text-white max-w-lg">
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: 0.1 }}
+                className="text-4xl sm:text-5xl font-bold mb-4 leading-tight"
               >
-                {settings.hero_cta_text || 'View Menu'}
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
-            </motion.div>
+                {settings.hero_title || settings.site_name || 'Experience Fine Dining at Its Best'}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: 0.25 }}
+                className="text-lg sm:text-xl mb-8 text-gray-200"
+              >
+                {settings.hero_subtitle || settings.tagline || 'Discover our exquisite cuisine in an elegant dining atmosphere.'}
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: 0.4 }}
+              >
+                <Link
+                  to={settings.hero_cta_link || "/menu"}
+                  className="inline-flex items-center px-6 py-3 rounded-full text-lg font-semibold transition-colors"
+                  style={{
+                    backgroundColor: settings.primary_color || '#f97316',
+                    color: 'white'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = settings.secondary_color || '#fb923c';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = settings.primary_color || '#f97316';
+                  }}
+                >
+                  {settings.hero_cta_text || 'View Menu'}
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </motion.div>
+            </div>
           </div>
         </div>
 
         {/* Features Section */}
         <div className="py-12 sm:py-20 bg-white">
           <div className="container mx-auto px-4">
-            <motion.h2 
+            <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
+              transition={spring}
               className="text-2xl sm:text-3xl font-bold text-center mb-12"
             >
               {settings.features_section_title || 'Why Choose Us'}
@@ -123,13 +138,13 @@ function Home() {
               {features.map((feature, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: 25, scale: 0.95 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.2 }}
+                  transition={{ ...spring, delay: index * 0.15 }}
                   className="text-center p-6 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
-                  <div 
+                  <div
                     className="inline-block p-3 rounded-full text-white mb-4"
                     style={{ backgroundColor: settings.primary_color || '#f97316' }}
                   >
@@ -146,10 +161,11 @@ function Home() {
         {/* Popular Dishes Section */}
         <div className="py-12 sm:py-20 bg-gray-50">
           <div className="container mx-auto px-4">
-            <motion.h2 
+            <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
+              transition={spring}
               className="text-2xl sm:text-3xl font-bold text-center mb-12"
             >
               {settings.popular_dishes_title || 'Popular Dishes'}
@@ -158,15 +174,15 @@ function Home() {
               {popularDishes.map((dish, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 0, y: 25, scale: 0.95 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ delay: index * 0.2 }}
+                  transition={{ ...spring, delay: index * 0.12 }}
                   className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow"
                 >
                   <div className="relative h-48 sm:h-56">
-                    <img 
-                      src={dish.image} 
+                    <img
+                      src={dish.image}
                       alt={dish.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -178,7 +194,7 @@ function Home() {
                     </div>
                   </div>
                   <div className="p-4 flex items-center justify-between">
-                    <span 
+                    <span
                       className="font-semibold"
                       style={{ color: settings.primary_color || '#f97316' }}
                     >
@@ -206,10 +222,11 @@ function Home() {
         </div>
 
         {/* CTA Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
+          transition={spring}
           className="py-12 sm:py-20 text-white"
           style={{ backgroundColor: settings.cta_background_color || '#f97316' }}
         >

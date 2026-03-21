@@ -6,6 +6,16 @@
 /* postcss-disable-next-line */
 @tailwind utilities;
 
+/* Lenis smooth scroll resets */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+html.lenis.lenis-smooth {
+  scroll-behavior: auto;
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

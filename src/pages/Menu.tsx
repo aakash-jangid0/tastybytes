@@ -7,6 +7,7 @@ import QuickCategorySelector from '../components/menu/QuickCategorySelector';
 import FilterModal from '../components/menu/FilterModal';
 import { useMenuItems } from '../hooks/useMenuItems';
 import { useCategories } from '../hooks/useCategories';
+import { StaggerChildren, staggerItemVariants } from '../components/common/ScrollAnimations';
 
 function Menu() {
   const { scrollY } = useScroll();
@@ -127,14 +128,15 @@ function Menu() {
         </motion.div>
 
         <div className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <StaggerChildren
+            className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6"
+            staggerDelay={0.08}
+          >
             {filteredItems.map((item) => (
               <motion.div
                 key={item.id}
                 layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+                variants={staggerItemVariants}
               >
                 <MenuCard {...item} />
               </motion.div>
@@ -145,7 +147,7 @@ function Menu() {
                 <p className="text-gray-500">No menu items found.</p>
               </div>
             )}
-          </div>
+          </StaggerChildren>
         </div>
 
         <FilterModal
