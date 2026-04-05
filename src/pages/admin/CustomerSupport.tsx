@@ -126,8 +126,8 @@ const CustomerSupport: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
-        <div className="flex items-center justify-center h-screen">
+      <div className="min-h-full bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+        <div className="flex items-center justify-center h-full">
           <motion.div 
             className="text-center"
             initial={{ opacity: 0, y: 20 }}
@@ -152,8 +152,8 @@ const CustomerSupport: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50">
-        <div className="flex items-center justify-center h-screen">
+      <div className="min-h-full bg-gradient-to-br from-red-50 via-white to-orange-50">
+        <div className="flex items-center justify-center h-full">
           <motion.div 
             className="text-center max-w-md mx-auto p-8"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -183,7 +183,7 @@ const CustomerSupport: React.FC = () => {
   // Show empty state if no chats
   if (!chats || chats.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+      <div className="min-h-full bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-6 py-4">
@@ -258,7 +258,7 @@ const CustomerSupport: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+    <div className="min-h-full bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
       {/* Beautiful Header with Analytics */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-3">
@@ -386,7 +386,7 @@ const CustomerSupport: React.FC = () => {
             </div>
 
             {/* Chat List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" data-lenis-prevent>
               <AnimatePresence>
                 {filteredChats.map((chat, index) => (
                   <motion.div
@@ -531,7 +531,7 @@ const CustomerSupport: React.FC = () => {
                 </div>
 
                 {/* Enhanced Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gradient-to-b from-gray-50/50 via-white to-blue-50/30 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-gradient-to-b from-gray-50/50 via-white to-blue-50/30 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent" data-lenis-prevent>
                   <AnimatePresence>
                     {selectedChat.messages && selectedChat.messages.length > 0 ? selectedChat.messages.map((message, index) => (
                       <motion.div

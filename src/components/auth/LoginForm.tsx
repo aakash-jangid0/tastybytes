@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Mail, Lock, Phone, ArrowLeft } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 type LoginMode = 'email' | 'phone' | 'otp';
 
@@ -46,9 +47,20 @@ function LoginForm() {
     }
     setIsLoading(true);
     try {
+      // Check if this phone belongs to an existing user (for welcome-back UX)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('phone', phone)
+        .single();
+
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
       await signInWithPhone(formattedPhone);
       setLoginMode('otp');
+
+      if (existingProfile?.name) {
+        toast.success(`Welcome back, ${existingProfile.name}! OTP sent to your phone.`);
+      }
     } catch (error) {
       console.error('Phone login error:', error);
     } finally {

@@ -145,26 +145,26 @@ export default function CustomerManagement() {
         .from('customers')
         .insert([
           {
-            name: 'John Doe',
-            email: 'john@example.com',
-            phone: '1234567890',
-            address: '123 Main St',
-            created_at: new Date().toISOString(),
-            status: 'active'
-          },
-          {
-            name: 'Jane Smith',
-            email: 'jane@example.com',
+            name: 'Rajesh Kumar',
+            email: 'rajesh.kumar@gmail.com',
             phone: '9876543210',
-            address: '456 Oak St',
+            address: '12, MG Road, Bengaluru',
             created_at: new Date().toISOString(),
             status: 'active'
           },
           {
-            name: 'Michael Johnson',
-            email: 'michael@example.com',
-            phone: '5551234567',
-            address: '789 Pine St',
+            name: 'Priya Sharma',
+            email: 'priya.sharma@gmail.com',
+            phone: '8765432109',
+            address: '45, Nehru Nagar, Mumbai',
+            created_at: new Date().toISOString(),
+            status: 'active'
+          },
+          {
+            name: 'Amit Patel',
+            email: 'amit.patel@gmail.com',
+            phone: '7654321098',
+            address: '78, Gandhi Chowk, Ahmedabad',
             created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
             status: 'active'
           }
@@ -425,7 +425,7 @@ export default function CustomerManagement() {
               </button>
               
               <div id="tagFilterDropdown" className="absolute z-10 mt-1 right-0 w-48 bg-white shadow-lg rounded-lg border hidden">
-                <div className="p-2 max-h-64 overflow-y-auto">
+                <div className="p-2 max-h-64 overflow-y-auto" data-lenis-prevent>
                   {availableTags.map(tag => (
                     <div key={tag} className="flex items-center p-2 hover:bg-gray-50 rounded">
                       <input
@@ -604,7 +604,7 @@ export default function CustomerManagement() {
       {/* Add/Edit Customer Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4" data-lenis-prevent>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

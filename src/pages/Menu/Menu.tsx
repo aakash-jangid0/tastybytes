@@ -7,7 +7,6 @@ import MenuGrid from './components/MenuGrid';
 import CategorySidebar from './components/CategorySidebar';
 import FilterModal from '../../components/menu/FilterModal';
 import { useMenuFilters } from './hooks/useMenuFilters';
-import { useMenuItems } from './hooks/useMenuItems';
 
 function Menu() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -22,10 +21,8 @@ function Menu() {
     filters,
     setFilters,
     filteredItems,
-    isLoading: filtersLoading
+    isLoading
   } = useMenuFilters();
-
-  const { menuItems, isLoading: menuItemsLoading } = useMenuItems();
 
   // Header animation
   const springConfig = { stiffness: 100, damping: 30, restDelta: 0.001 };
@@ -33,7 +30,7 @@ function Menu() {
   const headerY = useTransform(y, [0, 200], [0, -50]);
   const headerOpacity = useTransform(y, [0, 100], [1, 0]);
 
-  if (filtersLoading || menuItemsLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
@@ -66,15 +63,10 @@ function Menu() {
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
           priceRange={filters.priceRange}
-          setPriceRange={(range) => setFilters({...filters, priceRange: range})}
           selectedCategories={filters.selectedCategories}
-          setSelectedCategories={(categories) => setFilters({...filters, selectedCategories: categories})}
           sortBy={filters.sortBy}
-          setSortBy={(sort) => setFilters({...filters, sortBy: sort})}
-          spiceLevels={filters.spiceLevels}
-          setSpiceLevels={(levels) => setFilters({...filters, spiceLevels: levels})}
-          dietaryTags={filters.dietaryTags}
-          setDietaryTags={(tags) => setFilters({...filters, dietaryTags: tags})}
+          onApply={(applied) => setFilters(applied)}
+          onReset={() => setFilters({ priceRange: [0, 2000], selectedCategories: [], sortBy: 'popular' })}
         />
       </div>
     </PageTransition>

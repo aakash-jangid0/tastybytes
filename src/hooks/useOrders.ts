@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useRealtimeSync } from './useRealtimeSync';
-import { upsertCustomer } from '../utils/customerUtils';
+// upsertCustomer is still used by CounterDashboard for walk-in orders
+// import { upsertCustomer } from '../utils/customerUtils';
 
 interface OrderItem {
   name: string;
@@ -56,7 +57,7 @@ interface CreateOrderParams {
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, profilePhone } = useAuth();
 
   // Setup real-time sync for orders
   useRealtimeSync<Order>({
@@ -118,6 +119,24 @@ export function useOrders() {
         orderData = data;
       }
 
+      // Also fetch counter orders by phone (orders without user_id but matching phone)
+      if (profilePhone && orderData) {
+        const { data: phoneOrders } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('customer_phone', profilePhone)
+          .is('user_id', null)
+          .order('created_at', { ascending: false });
+
+        if (phoneOrders && phoneOrders.length > 0) {
+          const existingIds = new Set(orderData.map((o: Order) => o.id));
+          const newOrders = phoneOrders.filter((o: Order) => !existingIds.has(o.id));
+          orderData = [...orderData, ...newOrders].sort(
+            (a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        }
+      }
+
       setOrders(orderData || []);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch orders';
@@ -125,7 +144,7 @@ export function useOrders() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profilePhone]);
 
   useEffect(() => {
     fetchOrders();
@@ -171,25 +190,19 @@ export function useOrders() {
         throw new Error('Invalid phone number format. Please enter 10 digits only.');
       }
 
-      // First, ensure a customer record exists in the customers table
-      // This is required for the foreign key constraint on orders.customer_id
-      const customerData = {
-        name: customerNameFromProfile || customerName || user?.user_metadata?.name || user?.email || 'Guest',
-        email: customerEmailFromProfile || user?.email,
-        phone: finalCustomerPhone,
-        user_id: user.id,
-        customer_source: 'website'
-      };
-      
-      // Create or update customer record
-      const customerId = await upsertCustomer(customerData);
-      
-      if (!customerId) {
-        console.error('Customer creation failed with data:', customerData);
-        throw new Error('Failed to create customer record. Please check your details and try again.');
+      // Look up existing customer record (created by handle_new_user trigger on signup)
+      const { data: customerRecord, error: customerLookupError } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (customerLookupError || !customerRecord) {
+        console.error('Customer lookup failed:', customerLookupError);
+        throw new Error('Customer record not found. Please refresh and try again.');
       }
 
-      console.log('Customer created/updated successfully with ID:', customerId);
+      const customerId = customerRecord.id;
 
       // Check if user_id column exists
       const orderData = {

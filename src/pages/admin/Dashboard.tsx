@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import Lenis from 'lenis';
 import {
   LayoutDashboard, Coffee, ClipboardList, UserCog, Heart,
   MessageSquare, Ticket, FileText, Globe, QrCode,
   Coins, Users, TrendingUp, HelpCircle,
-  Package, ChefHat, Bell
+  Package, ChefHat, Bell, Activity
 } from 'lucide-react';
 import StatCard from '../../components/admin/dashboard/StatCard';
 import RevenueChart from '../../components/admin/dashboard/RevenueChart';
@@ -35,6 +36,9 @@ const orderStatusData = [
 
 function Dashboard() {
   const location = useLocation();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const contentInnerRef = useRef<HTMLDivElement>(null);
+  const lenisRef = useRef<Lenis | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('daily');
   const [stats, setStats] = useState({
     totalOrders: 156,
@@ -107,6 +111,47 @@ function Dashboard() {
     }
   };
 
+  // Lenis smooth scroll for admin content area
+  useEffect(() => {
+    const wrapper = contentRef.current;
+    const content = contentInnerRef.current;
+    if (!wrapper || !content) return;
+
+    const lenis = new Lenis({
+      wrapper,
+      content,
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+      touchMultiplier: 2,
+    });
+
+    lenisRef.current = lenis;
+
+    let rafId: number;
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
+    rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
+
+  // Scroll to top on route change
+  useEffect(() => {
+    if (lenisRef.current) {
+      lenisRef.current.scrollTo(0, { immediate: true });
+    } else if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
+
   const menuItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/menu', icon: Coffee, label: 'Menu' },
@@ -120,6 +165,7 @@ function Dashboard() {
     { path: '/admin/invoices', icon: FileText, label: 'Invoices' },
     { path: '/admin/website', icon: Globe, label: 'Website' },
     { path: '/admin/qr-codes', icon: QrCode, label: 'QR Codes' },
+    { path: '/admin/diagnostics', icon: Activity, label: 'Diagnostics' },
   ];
 
   return (
@@ -154,7 +200,8 @@ function Dashboard() {
       </motion.div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div ref={contentRef} className="flex-1 overflow-auto scrollbar-thin">
+        <div ref={contentInnerRef}>
         <AnimatePresence mode="wait">
           {location.pathname === '/admin' ? (
             <motion.div
@@ -303,6 +350,7 @@ function Dashboard() {
             </ErrorBoundary>
           )}
         </AnimatePresence>
+        </div>
       </div>
       </div>
     </div>

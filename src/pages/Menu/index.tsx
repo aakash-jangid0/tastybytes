@@ -50,15 +50,10 @@ function Menu() {
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
           priceRange={filters.priceRange}
-          setPriceRange={(range) => setFilters({ ...filters, priceRange: range })}
           selectedCategories={filters.selectedCategories}
-          setSelectedCategories={(categories) => setFilters({ ...filters, selectedCategories: categories })}
           sortBy={filters.sortBy}
-          setSortBy={(sort) => setFilters({ ...filters, sortBy: sort })}
-          spiceLevels={filters.spiceLevels}
-          setSpiceLevels={(levels) => setFilters({ ...filters, spiceLevels: levels })}
-          dietaryTags={filters.dietaryTags}
-          setDietaryTags={(tags) => setFilters({ ...filters, dietaryTags: tags })}
+          onApply={(applied) => setFilters(applied)}
+          onReset={() => setFilters({ priceRange: [0, 2000], selectedCategories: [], sortBy: 'popular' })}
         />
       </div>
     </PageTransition>

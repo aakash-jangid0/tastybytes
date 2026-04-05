@@ -56,7 +56,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ isOpen, onClose, settings }) 
             <RefreshCw className="w-3 h-3" />
           </button>
         </div>        {/* Preview Content */}
-        <div className="h-full overflow-auto bg-white">
+        <div className="h-full overflow-auto bg-white" data-lenis-prevent>
           {/* Hero Section Preview */}
           <div 
             className="relative h-64 flex items-center justify-center bg-gradient-to-r from-orange-500 to-pink-500"
@@ -254,7 +254,7 @@ const LivePreview: React.FC<LivePreviewProps> = ({ isOpen, onClose, settings }) 
           </div>
 
           {/* Preview Area */}
-          <div className="flex-1 flex items-center justify-center p-6 bg-gray-100 overflow-auto">
+          <div className="flex-1 flex items-center justify-center p-6 bg-gray-100 overflow-auto" data-lenis-prevent>
             {renderPreviewContent()}
           </div>
         </motion.div>

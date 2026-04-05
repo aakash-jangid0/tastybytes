@@ -9,6 +9,8 @@ import { Invoice } from '../../types/invoice';
 import { emailInvoice, printInvoice, viewOrDownloadInvoice } from '../../utils/invoiceUtils';
 import { useGuestGuard } from '../../hooks/useGuestGuard';
 
+const PAGE_SIZE = 20;
+
 export default function InvoiceManagement() {
   const { isGuest, guardAction } = useGuestGuard();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -23,6 +25,8 @@ export default function InvoiceManagement() {
   const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
   const [showDateFilter, setShowDateFilter] = useState(false);
   const dateFilterRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [editForm, setEditForm] = useState({
     customer_name: '',
     customer_phone: '',
@@ -100,35 +104,60 @@ export default function InvoiceManagement() {
     };
   }, [setupRealtimeSubscription]);
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = async (page = currentPage) => {
     try {
       setLoading(true);
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Get total count for pagination
+      const { count, error: countError } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) throw countError;
+      setTotalCount(count || 0);
+
+      // Fetch paginated invoices with items in a single query
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select(`
           *,
           items:invoice_items(*)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (invoicesError) throw invoicesError;
-      
-      // Make sure items are properly loaded for each invoice
-      const processedInvoices = [];
-      for (const invoice of invoicesData || []) {
-        // If items is null or empty, try to fetch them separately
-        if (!invoice.items || invoice.items.length === 0) {
-          const { data: items } = await supabase
-            .from('invoice_items')
-            .select('*')
-            .eq('invoice_id', invoice.id);
-          
-          invoice.items = items || [];
+
+      // Only fetch missing items for invoices that need it (batch approach)
+      const invoicesWithoutItems = (invoicesData || []).filter(
+        inv => !inv.items || inv.items.length === 0
+      );
+
+      if (invoicesWithoutItems.length > 0) {
+        const missingIds = invoicesWithoutItems.map(inv => inv.id);
+        const { data: allMissingItems } = await supabase
+          .from('invoice_items')
+          .select('*')
+          .in('invoice_id', missingIds);
+
+        // Group items by invoice_id
+        const itemsByInvoice = (allMissingItems || []).reduce((acc: Record<string, any[]>, item: any) => {
+          if (!acc[item.invoice_id]) acc[item.invoice_id] = [];
+          acc[item.invoice_id].push(item);
+          return acc;
+        }, {});
+
+        // Assign items back
+        for (const invoice of invoicesData || []) {
+          if (!invoice.items || invoice.items.length === 0) {
+            invoice.items = itemsByInvoice[invoice.id] || [];
+          }
         }
-        processedInvoices.push(invoice);
       }
-      
-      setInvoices(processedInvoices);
+
+      setInvoices(invoicesData || []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Failed to load invoices');
@@ -220,14 +249,22 @@ export default function InvoiceManagement() {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    fetchInvoices(page);
+  };
+
   const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = 
+    const matchesSearch =
       invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invoice.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
-    
-    const matchesDateRange = 
+
+    const matchesDateRange =
       !dateRange[0] || !dateRange[1] ||
       (new Date(invoice.created_at) >= dateRange[0] &&
        new Date(invoice.created_at) <= dateRange[1]);
@@ -237,7 +274,7 @@ export default function InvoiceManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
     );
@@ -515,6 +552,55 @@ export default function InvoiceManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
+            <p className="text-sm text-gray-600">
+              Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} invoices
+            </p>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+                .reduce((acc: (number | string)[], page, idx, arr) => {
+                  if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
+                  acc.push(page);
+                  return acc;
+                }, [])
+                .map((page, idx) =>
+                  typeof page === 'string' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">...</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-1 text-sm border rounded-md ${
+                        currentPage === page
+                          ? 'bg-orange-500 text-white border-orange-500'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Email Modal */}

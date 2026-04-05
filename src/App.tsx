@@ -29,14 +29,13 @@ import InvoiceManagement from './pages/admin/InvoiceManagement';
 import InvoiceTemplateSettings from './pages/admin/InvoiceTemplateSettings';
 
 import StaffManagement from './pages/admin/StaffManagement';
-import StaffProfile from './pages/admin/StaffProfile';
 import CustomerManagement from './pages/admin/CustomerManagement';
 import FeedbackManagement from './pages/admin/FeedbackManagement';
 import CouponManagement from './pages/admin/CouponManagement';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import CustomerSupport from './pages/admin/CustomerSupport';
 import WebsiteSettingsComprehensive from './pages/admin/WebsiteSettingsComprehensive';
-
+import DiagnosticsPage from './pages/admin/DiagnosticsPage';
 
 export default function App() {
   // Initialize global toast dismiss functionality
@@ -151,12 +150,12 @@ export default function App() {
                   <Route path="qr-codes" element={<QRCodeManagement />} />
 
                   <Route path="staff" element={<StaffManagement />} />
-                  <Route path="staff/:id" element={<StaffProfile />} />
                   <Route path="feedback" element={<FeedbackManagement />} />
                   <Route path="coupons" element={<CouponManagement />} />
                   <Route path="categories" element={<CategoryManagement />} />
                   <Route path="support" element={<CustomerSupport />} />
                   <Route path="website" element={<WebsiteSettingsComprehensive />} />
+                  <Route path="diagnostics" element={<DiagnosticsPage />} />
                 </Route>
               </Routes>
             </LenisProvider>

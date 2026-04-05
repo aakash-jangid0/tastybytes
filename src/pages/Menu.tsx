@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useScroll, motion, AnimatePresence } from 'framer-motion';
 import PageTransition from '../components/common/PageTransition';
 import MenuCard from '../components/menu/MenuCard';
@@ -7,17 +7,30 @@ import QuickCategorySelector from '../components/menu/QuickCategorySelector';
 import FilterModal from '../components/menu/FilterModal';
 import { useMenuItems } from '../hooks/useMenuItems';
 import { useCategories } from '../hooks/useCategories';
+import { MenuItem } from '../types/menu';
 import { StaggerChildren, staggerItemVariants } from '../components/common/ScrollAnimations';
+
+interface Filters {
+  priceRange: [number, number];
+  selectedCategories: string[];
+  sortBy: string;
+}
+
+const DEFAULT_FILTERS: Filters = {
+  priceRange: [0, 2000],
+  selectedCategories: [],
+  sortBy: 'popular',
+};
 
 function Menu() {
   const { scrollY } = useScroll();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showHeader, setShowHeader] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down'>('up');
-  const scrollThreshold = 50; // Minimum scroll distance before triggering hide/show
+  const scrollThreshold = 50;
 
   useEffect(() => {
     let rafId: number;
@@ -60,21 +73,51 @@ function Menu() {
   // Get menu items and categories from Supabase
   const { menuItems, isLoading: isLoadingMenuItems } = useMenuItems();
   const { categories, isLoading: isLoadingCategories } = useCategories();
-  
+
   // Transform categories for QuickCategorySelector
   const categoryItems = categories.map(cat => ({
     id: cat.slug,
     name: cat.name,
     icon: cat.icon || undefined
   }));
-  
-  const filteredItems = menuItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    // Show all items (both available and unavailable) but style them differently in UI
-    return matchesSearch && matchesCategory;
-  });
+
+  const filteredItems = useMemo(() => {
+    const sortItems = (items: MenuItem[], sortBy: string) => {
+      switch (sortBy) {
+        case 'priceAsc':
+          return [...items].sort((a, b) => a.price - b.price);
+        case 'priceDesc':
+          return [...items].sort((a, b) => b.price - a.price);
+        case 'nameAsc':
+          return [...items].sort((a, b) => a.name.localeCompare(b.name));
+        case 'nameDesc':
+          return [...items].sort((a, b) => b.name.localeCompare(a.name));
+        default:
+          return items;
+      }
+    };
+
+    const filtered = menuItems.filter(item => {
+      // Text search
+      const matchesSearch = !searchQuery ||
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Quick category selector
+      const matchesQuickCategory = selectedCategory === 'all' || item.category === selectedCategory;
+
+      // Price range from modal
+      const matchesPrice = item.price >= filters.priceRange[0] && item.price <= filters.priceRange[1];
+
+      // Category filter from modal
+      const matchesModalCategories = filters.selectedCategories.length === 0 ||
+        filters.selectedCategories.includes(item.category);
+
+      return matchesSearch && matchesQuickCategory && matchesPrice && matchesModalCategories;
+    });
+
+    return sortItems(filtered, filters.sortBy);
+  }, [menuItems, searchQuery, selectedCategory, filters]);
 
   return (
     <PageTransition>
@@ -145,6 +188,7 @@ function Menu() {
             {filteredItems.length === 0 && (
               <div className="col-span-2 text-center py-12">
                 <p className="text-gray-500">No menu items found.</p>
+                <p className="text-gray-400 text-sm mt-2">Try adjusting your filters or search query.</p>
               </div>
             )}
           </StaggerChildren>
@@ -153,16 +197,11 @@ function Menu() {
         <FilterModal
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
-          priceRange={[0, 2000]}
-          setPriceRange={() => {}}
-          selectedCategories={[]}
-          setSelectedCategories={() => {}}
-          sortBy="popular"
-          setSortBy={() => {}}
-          spiceLevels={[]}
-          setSpiceLevels={() => {}}
-          dietaryTags={[]}
-          setDietaryTags={() => {}}
+          priceRange={filters.priceRange}
+          selectedCategories={filters.selectedCategories}
+          sortBy={filters.sortBy}
+          onApply={(applied) => setFilters(applied)}
+          onReset={() => setFilters(DEFAULT_FILTERS)}
         />
       </div>
     </PageTransition>

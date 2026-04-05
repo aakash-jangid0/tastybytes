@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 interface AuthContextType {
   user: User | null;
   role: string | null;
+  profilePhone: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string, phone?: string) => Promise<void>;
@@ -13,6 +14,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithPhone: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, token: string) => Promise<void>;
+  updateProfilePhone: (phone: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,22 +22,28 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [profilePhone, setProfilePhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId: string) => {
+  const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, phone')
       .eq('id', userId)
       .single();
     setRole(data?.role ?? null);
+    setProfilePhone(data?.phone ?? null);
+  };
+
+  const updateProfilePhone = (phone: string) => {
+    setProfilePhone(phone);
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id).finally(() => setLoading(false));
+        fetchProfile(session.user.id).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -44,9 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id).finally(() => setLoading(false));
+        fetchProfile(session.user.id).finally(() => setLoading(false));
       } else {
         setRole(null);
+        setProfilePhone(null);
         setLoading(false);
       }
     });
@@ -70,18 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
 
       if (data.user) {
-        // Create a customer record with phone number
-        if (phone) {
-          await supabase
-            .from('customers')
-            .upsert({
-              user_id: data.user.id,
-              name,
-              email,
-              phone
-            });
-        }
-
+        // Profile and customer records are created automatically by the
+        // handle_new_user() database trigger — no frontend upsert needed.
         toast.success('Account created successfully!');
       }
     } catch (error: any) {
@@ -174,13 +173,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       role,
+      profilePhone,
       loading,
       signIn,
       signUp,
       signOut,
       signInWithGoogle,
       signInWithPhone,
-      verifyOtp
+      verifyOtp,
+      updateProfilePhone
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MenuItem } from '../../types/menu';
-import { Pizza, DollarSign, Clock } from 'lucide-react';
+import { Pizza, IndianRupee, Clock } from 'lucide-react';
 
 interface MenuStatsProps {
   items: MenuItem[];
@@ -27,8 +27,8 @@ function MenuStats({ items }: MenuStatsProps) {
     },
     {
       label: 'Average Price',
-      value: `Rs${averagePrice.toFixed(2)}`,
-      icon: DollarSign,
+      value: `₹${averagePrice.toFixed(2)}`,
+      icon: IndianRupee,
       color: 'bg-purple-500',
     },
   ];

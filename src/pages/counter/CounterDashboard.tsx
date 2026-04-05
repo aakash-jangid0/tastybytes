@@ -9,9 +9,11 @@ import { useOrderForm } from '../../hooks/useOrderForm';
 import { useMenuItems } from '../../hooks/useMenuItems';
 import { calculateOrderTotals } from '../../utils/orderUtils';
 import { generateAndProcessInvoice } from '../../utils/orderInvoiceUtils';
+import { upsertCustomer } from '../../utils/customerUtils';
 import { formatDistanceToNow } from 'date-fns';
 import { useGuestGuard } from '../../hooks/useGuestGuard';
 import DashboardHeader from '../../components/common/DashboardHeader';
+import CustomerLookupModal from '../../components/counter/CustomerLookupModal';
 
 export default function CounterDashboard() {
   const { isGuest, guardAction } = useGuestGuard();
@@ -61,6 +63,7 @@ export default function CounterDashboard() {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'menu' | 'orders'>('menu');
+  const [showCustomerLookup, setShowCustomerLookup] = useState(false);
 
   // Destructuring only the properties we need
   const { orderItems, addOrderItem, updateQuantity, clearOrder } = useOrderManagement();
@@ -80,12 +83,20 @@ export default function CounterDashboard() {
       try {
         const { subtotal, discount, tax, total } = calculateOrderTotals(orderItems, appliedCoupon);
 
-        // First insert the order
+        // Create or link customer record by phone
+        const customerId = await upsertCustomer({
+          name: customerName,
+          phone: customerPhone,
+          customer_source: 'counter'
+        });
+
+        // Insert the order with customer_id
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
             customer_name: customerName,
             customer_phone: customerPhone,
+            customer_id: customerId,
             table_number: orderType === 'dine-in' ? tableNumber : null,
             order_type: orderType,
             payment_method: paymentMethod,
@@ -229,30 +240,14 @@ export default function CounterDashboard() {
     { id: 'beverage', name: 'Beverages', icon: Package },
   ];
 
-  const handleCustomerLookup = async () => {
-    if (!validatePhone()) {
-      return;
-    }
+  const handleCustomerLookup = () => {
+    setShowCustomerLookup(true);
+  };
 
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('phone', customerPhone)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setCustomerName(data.name);
-        toast.success('Customer found!');
-      } else {
-        toast.error('Customer not found');
-      }
-    } catch (error) {
-      console.error('Customer lookup error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to lookup customer');
-    }
+  const handleCustomerSelected = (name: string, phone: string) => {
+    setCustomerName(name);
+    setCustomerPhone(phone);
+    setPhoneError('');
   };
   
   // Fetch orders based on filter criteria
@@ -1145,6 +1140,13 @@ export default function CounterDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Customer Lookup Modal */}
+      <CustomerLookupModal
+        isOpen={showCustomerLookup}
+        onClose={() => setShowCustomerLookup(false)}
+        onSelectCustomer={handleCustomerSelected}
+      />
     </div>
   );
 }

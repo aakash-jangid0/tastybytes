@@ -247,62 +247,61 @@ const generateClassicTemplate = (doc: jsPDF, data: InvoiceData, settings: Invoic
   const pageWidth = doc.internal.pageSize.getWidth();
   let cursorY = 10;
 
-  // Logo or placeholder
+  // Logo size from settings (with defaults)
+  const logoW = settings.logo_width || 30;
+  const logoH = settings.logo_height || 10;
+
+  // Logo (only if URL is set)
   if (settings.company_logo_url) {
     try {
-      // Try to add image logo if URL is provided
-      // Determine image format from URL or default to JPEG
       let format = 'JPEG';
       const url = settings.company_logo_url?.toLowerCase();
       if (url?.includes('.png')) format = 'PNG';
       else if (url?.includes('.gif')) format = 'GIF';
       else if (url?.includes('.webp')) format = 'WEBP';
-      
-      doc.addImage(settings.company_logo_url, format, pageWidth / 2 - 15, cursorY, 30, 10, undefined, 'FAST');
-      cursorY += 15;
+
+      doc.addImage(settings.company_logo_url, format, pageWidth / 2 - logoW / 2, cursorY, logoW, logoH, undefined, 'FAST');
+      cursorY += logoH + 5;
     } catch (error) {
       console.error('Error loading logo:', error);
-      // Fallback to circle if image loading fails
-      doc.setDrawColor(0, 0, 0);
-      doc.setFillColor(0, 0, 0);
-      doc.circle(pageWidth / 2, cursorY + 5, 6, 'F');
-      cursorY += 15;
+      // No logo, just add a small top margin
+      cursorY += 2;
     }
   } else {
-    // Default circle placeholder
-    doc.setDrawColor(0, 0, 0);
-    doc.setFillColor(0, 0, 0);
-    doc.circle(pageWidth / 2, cursorY + 5, 6, 'F');
-    cursorY += 15;
+    // No logo — just a small top margin
+    cursorY += 2;
   }
 
-  // Restaurant Name
+  // Restaurant Name with custom color
+  const nameColor = hexToRgb(settings.company_name_color || '#000000');
+  doc.setTextColor(nameColor.r, nameColor.g, nameColor.b);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  // Use the company name from settings
   doc.text(settings.company_name, pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 6;
+  doc.setTextColor(0, 0, 0); // Reset
+  cursorY += 8;
 
   // Address
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text(settings.company_address, pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 4;
-  
+  cursorY += 6;
+
   // Only show contact info if enabled
   if (settings.show_restaurant_contact) {
     if (settings.company_phone) {
       doc.text(`Phone: ${settings.company_phone}`, pageWidth / 2, cursorY, { align: 'center' });
-      cursorY += 4;
+      cursorY += 5;
     }
     doc.text(`Email: ${settings.company_email}`, pageWidth / 2, cursorY, { align: 'center' });
-    cursorY += 4;
+    cursorY += 6;
   }
 
-  // Receipt Title
+  // Receipt Title with spacing
+  cursorY += 2;
   doc.setFont('helvetica', 'bold');
   doc.text(settings.receipt_title, pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 2;
+  cursorY += 3;
   doc.setLineWidth(0.1);
   doc.line(10, cursorY, pageWidth - 10, cursorY);
   cursorY += 6;
@@ -485,22 +484,20 @@ const generateClassicTemplate = (doc: jsPDF, data: InvoiceData, settings: Invoic
     cursorY += 35;
   }
 
-  // Custom footer text if provided
-  if (settings.footer_text) {
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.text(settings.footer_text, pageWidth / 2, cursorY, { align: 'center', maxWidth: pageWidth - 20 });
-    cursorY += 8;
-  }
-  
-  // Default footer
+  // Footer lines from settings
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('**SAVE PAPER SAVE NATURE !!**', pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 4;
-  doc.setFont('helvetica', 'normal');
-  doc.text('YOU CAN NOW CALL US ON 1800 226344 (TOLL-FREE) FOR QUERIES/COMPLAINTS.', pageWidth / 2, cursorY, { align: 'center' });
-  cursorY += 4;
+  const line1 = settings.footer_line_1 ?? '**SAVE PAPER SAVE NATURE !!**';
+  const line2 = settings.footer_line_2 ?? 'YOU CAN NOW CALL US ON 1800 226344 (TOLL-FREE) FOR QUERIES/COMPLAINTS.';
+  if (line1) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(line1, pageWidth / 2, cursorY, { align: 'center', maxWidth: pageWidth - 20 });
+    cursorY += 4;
+  }
+  if (line2) {
+    doc.setFont('helvetica', 'normal');
+    doc.text(line2, pageWidth / 2, cursorY, { align: 'center', maxWidth: pageWidth - 20 });
+    cursorY += 4;
+  }
   doc.text('Time: ' + format(data.date, 'HH:mm'), pageWidth / 2, cursorY, { align: 'center' });
   cursorY += 2;
 

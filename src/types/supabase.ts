@@ -16,54 +16,10 @@ export interface Database {
           full_name: string
           email: string
           phone: string | null
-          address: string | null
           role: string
-          department: string
-          start_date: string
-          profile_photo_url: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          emergency_contact_relation: string | null
+          joining_date: string
+          monthly_salary: number
           is_active: boolean
-          last_login: string | null
-          date_of_birth: string | null
-          national_id: string | null
-          gender: string | null
-          marital_status: string | null
-          blood_group: string | null
-          nationality: string | null
-          employee_id: string | null
-          contract_type: string | null
-          hire_status: string | null
-          probation_end_date: string | null
-          notice_period: string | null
-          skills: string[] | null
-          joining_date: string | null
-          employment_history: string | null
-          base_salary: number | null
-          hourly_rate: number | null
-          payment_schedule: string | null
-          bank_name: string | null
-          bank_account: string | null
-          tax_id: string | null
-          bonus: number | null
-          deductions: number | null
-          net_salary: number | null
-          working_hours_per_week: number | null
-          default_shift: string | null
-          weekend_availability: boolean | null
-          overtime_eligible: boolean | null
-          time_off_accrual_rate: number | null
-          annual_leave_balance: number | null
-          sick_leave_balance: number | null
-          leave_start_date: string | null
-          leave_end_date: string | null
-          leave_reason: string | null
-          last_evaluation_date: string | null
-          evaluation_score: number | null
-          next_evaluation_date: string | null
-          performance_notes: string | null
-          performance_score: number | null
           created_at: string | null
           updated_at: string | null
         }
@@ -73,54 +29,10 @@ export interface Database {
           full_name: string
           email: string
           phone?: string | null
-          address?: string | null
           role: string
-          department: string
-          start_date: string
-          profile_photo_url?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relation?: string | null
+          joining_date: string
+          monthly_salary: number
           is_active?: boolean
-          last_login?: string | null
-          date_of_birth?: string | null
-          national_id?: string | null
-          gender?: string | null
-          marital_status?: string | null
-          blood_group?: string | null
-          nationality?: string | null
-          employee_id?: string | null
-          contract_type?: string | null
-          hire_status?: string | null
-          probation_end_date?: string | null
-          notice_period?: string | null
-          skills?: string[] | null
-          joining_date?: string | null
-          employment_history?: string | null
-          base_salary?: number | null
-          hourly_rate?: number | null
-          payment_schedule?: string | null
-          bank_name?: string | null
-          bank_account?: string | null
-          tax_id?: string | null
-          bonus?: number | null
-          deductions?: number | null
-          net_salary?: number | null
-          working_hours_per_week?: number | null
-          default_shift?: string | null
-          weekend_availability?: boolean | null
-          overtime_eligible?: boolean | null
-          time_off_accrual_rate?: number | null
-          annual_leave_balance?: number | null
-          sick_leave_balance?: number | null
-          leave_start_date?: string | null
-          leave_end_date?: string | null
-          leave_reason?: string | null
-          last_evaluation_date?: string | null
-          evaluation_score?: number | null
-          next_evaluation_date?: string | null
-          performance_notes?: string | null
-          performance_score?: number | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -130,95 +42,10 @@ export interface Database {
           full_name?: string
           email?: string
           phone?: string | null
-          address?: string | null
           role?: string
-          department?: string
-          start_date?: string
-          profile_photo_url?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relation?: string | null
+          joining_date?: string
+          monthly_salary?: number
           is_active?: boolean
-          last_login?: string | null
-          date_of_birth?: string | null
-          national_id?: string | null
-          gender?: string | null
-          marital_status?: string | null
-          blood_group?: string | null
-          nationality?: string | null
-          employee_id?: string | null
-          contract_type?: string | null
-          hire_status?: string | null
-          probation_end_date?: string | null
-          notice_period?: string | null
-          skills?: string[] | null
-          joining_date?: string | null
-          employment_history?: string | null
-          base_salary?: number | null
-          hourly_rate?: number | null
-          payment_schedule?: string | null
-          bank_name?: string | null
-          bank_account?: string | null
-          tax_id?: string | null
-          bonus?: number | null
-          deductions?: number | null
-          net_salary?: number | null
-          working_hours_per_week?: number | null
-          default_shift?: string | null
-          weekend_availability?: boolean | null
-          overtime_eligible?: boolean | null
-          time_off_accrual_rate?: number | null
-          annual_leave_balance?: number | null
-          sick_leave_balance?: number | null
-          leave_start_date?: string | null
-          leave_end_date?: string | null
-          leave_reason?: string | null
-          last_evaluation_date?: string | null
-          evaluation_score?: number | null
-          next_evaluation_date?: string | null
-          performance_notes?: string | null
-          performance_score?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-      }
-      staff_documents: {
-        Row: {
-          id: string
-          staff_id: string
-          document_type: string
-          document_name: string
-          document_url: string
-          expiry_date: string | null
-          is_verified: boolean
-          verified_by: string | null
-          verified_at: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          staff_id: string
-          document_type: string
-          document_name: string
-          document_url: string
-          expiry_date?: string | null
-          is_verified?: boolean
-          verified_by?: string | null
-          verified_at?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          staff_id?: string
-          document_type?: string
-          document_name?: string
-          document_url?: string
-          expiry_date?: string | null
-          is_verified?: boolean
-          verified_by?: string | null
-          verified_at?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -229,6 +56,7 @@ export interface Database {
           name: string | null
           email: string | null
           phone: string | null
+          role: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -237,6 +65,7 @@ export interface Database {
           name?: string | null
           email?: string | null
           phone?: string | null
+          role?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -245,6 +74,7 @@ export interface Database {
           name?: string | null
           email?: string | null
           phone?: string | null
+          role?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -329,6 +159,53 @@ export interface Database {
           price?: number
           notes?: string | null
           created_at?: string | null
+        }
+      }
+      salary_records: {
+        Row: {
+          id: string
+          staff_id: string
+          month: number
+          year: number
+          total_working_days: number
+          days_worked: number
+          monthly_salary: number
+          amount_paid: number
+          status: string
+          note: string | null
+          paid_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          staff_id: string
+          month: number
+          year: number
+          total_working_days: number
+          days_worked: number
+          monthly_salary: number
+          amount_paid: number
+          status?: string
+          note?: string | null
+          paid_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          staff_id?: string
+          month?: number
+          year?: number
+          total_working_days?: number
+          days_worked?: number
+          monthly_salary?: number
+          amount_paid?: number
+          status?: string
+          note?: string | null
+          paid_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
       menu_items: {

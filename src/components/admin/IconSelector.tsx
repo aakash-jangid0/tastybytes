@@ -50,7 +50,7 @@ const IconSelector: React.FC<IconSelectorProps> = ({ selectedIcon, onSelectIcon 
             />
           </div>
           
-          <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto">
+          <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto" data-lenis-prevent>
             {filteredIcons.length > 0 ? (
               filteredIcons.map(name => (
                 <div

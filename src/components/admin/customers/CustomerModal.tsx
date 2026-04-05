@@ -131,6 +131,7 @@ export default function CustomerModal({ isOpen, customer, onClose, onSave }: Cus
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            data-lenis-prevent
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center p-4 border-b">

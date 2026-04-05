@@ -132,7 +132,7 @@ function WebsiteSettingsComprehensive() {
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-6 overflow-y-auto max-h-[60vh]" data-lenis-prevent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {menuItems.map((dish) => {
               const isSelected = settings.popular_dish_ids?.includes(dish.id);
@@ -434,9 +434,9 @@ function WebsiteSettingsComprehensive() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-full bg-gray-50">
       {/* Settings Panel */}
-      <div className="flex-1 max-w-2xl overflow-y-auto">
+      <div className="flex-1 max-w-2xl">
         <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
@@ -1117,12 +1117,12 @@ function WebsiteSettingsComprehensive() {
         </div>
       </div>      {/* Preview Panel */}
       {showPreview && (
-        <div className="w-1/2 border-l bg-white flex flex-col h-screen">
+        <div className="w-1/2 border-l bg-white flex flex-col sticky top-0 h-[calc(100vh-64px)]">
           <div className="p-4 border-b shrink-0">
             <h3 className="text-lg font-semibold">Live Preview</h3>
             <p className="text-sm text-gray-600">See how your changes look on the website</p>
           </div>
-          <div className="flex-grow overflow-auto">
+          <div className="flex-grow overflow-auto" data-lenis-prevent>
             <WebsitePreview />
           </div>
         </div>

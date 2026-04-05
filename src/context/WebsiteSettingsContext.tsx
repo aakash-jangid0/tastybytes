@@ -10,6 +10,39 @@ interface SupabaseError {
   hint?: string;
 }
 
+// Map DB column names back to frontend settings field names
+const mapDbToSettings = (dbData: Record<string, any>): Partial<WebsiteSettings> => {
+  const mapped: Record<string, any> = { ...dbData };
+
+  // DB column → frontend field (reverse of saveSettings mapping)
+  if (dbData.header_bg_color !== undefined && !dbData.primary_color) {
+    mapped.primary_color = dbData.header_bg_color;
+  }
+  if (dbData.hero_image_url !== undefined) {
+    mapped.hero_background_image = dbData.hero_image_url;
+  }
+  if (dbData.hero_description !== undefined) {
+    mapped.hero_subtitle = dbData.hero_description;
+  }
+  if (dbData.hero_button_text !== undefined) {
+    mapped.hero_cta_text = dbData.hero_button_text;
+  }
+  if (dbData.hero_button_url !== undefined) {
+    mapped.hero_cta_link = dbData.hero_button_url;
+  }
+  if (dbData.features_title !== undefined) {
+    mapped.features_section_title = dbData.features_title;
+  }
+  if (dbData.cta_description !== undefined) {
+    mapped.cta_subtitle = dbData.cta_description;
+  }
+  if (dbData.opening_hours !== undefined) {
+    mapped.hours_mon_fri = dbData.opening_hours;
+  }
+
+  return mapped;
+};
+
 interface WebsiteSettingsContextType {
   settings: WebsiteSettings;
   updateSettings: (newSettings: Partial<WebsiteSettings>) => void;
@@ -63,7 +96,8 @@ export const WebsiteSettingsProvider: React.FC<WebsiteSettingsProviderProps> = (
       }
 
       if (data) {
-        setSettings({ ...defaultWebsiteSettings, ...data });
+        const mappedData = mapDbToSettings(data);
+        setSettings({ ...defaultWebsiteSettings, ...mappedData });
       } else {
         setSettings(defaultWebsiteSettings);
       }
@@ -132,7 +166,7 @@ export const WebsiteSettingsProvider: React.FC<WebsiteSettingsProviderProps> = (
         site_name: settings.site_name || 'TastyBites',
         tagline: settings.tagline,
         header_bg_color: settings.primary_color || '#f97316',
-        footer_text: '© 2025 TastyBites. All rights reserved.',
+        footer_text: `© ${new Date().getFullYear()} ${settings.site_name || 'TastyBites'}. All rights reserved.`,
         footer_bg_color: '#f3f4f6',
         footer_text_color: '#6b7280',
         show_social_links: true,
@@ -153,15 +187,22 @@ export const WebsiteSettingsProvider: React.FC<WebsiteSettingsProviderProps> = (
         features_title: settings.features_section_title,
         feature_1_title: settings.feature_1_title,
         feature_1_description: settings.feature_1_description,
+        feature_1_icon: settings.feature_1_icon,
         feature_2_title: settings.feature_2_title,
         feature_2_description: settings.feature_2_description,
+        feature_2_icon: settings.feature_2_icon,
         feature_3_title: settings.feature_3_title,
         feature_3_description: settings.feature_3_description,
+        feature_3_icon: settings.feature_3_icon,
         popular_dishes_title: settings.popular_dishes_title,
+        popular_dish_ids: settings.popular_dish_ids,
         cta_title: settings.cta_title,
         cta_description: settings.cta_subtitle,
         cta_button_text: settings.cta_button_text,
-        primary_color: settings.primary_color
+        primary_color: settings.primary_color,
+        secondary_color: settings.secondary_color,
+        accent_color: settings.accent_color,
+        font_family: settings.font_family
       };
 
       // Remove undefined/null values
@@ -241,8 +282,8 @@ export const WebsiteSettingsProvider: React.FC<WebsiteSettingsProviderProps> = (
             setTimeout(() => {
               // Only update if user is not currently editing (using ref to avoid stale closure)
               if (!isEditingRef.current) {
-                const updatedSettings = payload.new as WebsiteSettings;
-                setSettings(() => ({ ...defaultWebsiteSettings, ...updatedSettings }));
+                const mappedData = mapDbToSettings(payload.new as Record<string, any>);
+                setSettings(() => ({ ...defaultWebsiteSettings, ...mappedData }));
               }
             }, 150);
             

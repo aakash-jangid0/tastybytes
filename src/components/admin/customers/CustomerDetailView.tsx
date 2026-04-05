@@ -119,7 +119,8 @@ export default function CustomerDetailView({ customerId, onBack }: CustomerDetai
         throw new Error('Customer not found');
       }
 
-      // Get customer orders with detailed information
+      // Get customer orders by customer_id OR matching phone (for counter orders)
+      const phoneFilter = customer.phone ? `,customer_phone.eq.${customer.phone}` : '';
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -145,7 +146,7 @@ export default function CustomerDetailView({ customerId, onBack }: CustomerDetai
             created_at
           )
         `)
-        .eq('customer_id', customerId)
+        .or(`customer_id.eq.${customerId}${phoneFilter}`)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;

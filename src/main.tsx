@@ -2,10 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
-// import diagnosticService from './utils/diagnosticService.js';
+import diagnosticService from './utils/diagnosticService.js';
 
 // Start capturing errors
-// diagnosticService.startCapturing();
+diagnosticService.startCapturing();
 
 // Global error handler
 window.onerror = function(message, source, lineno, colno, error) {

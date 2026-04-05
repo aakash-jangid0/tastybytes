@@ -31,4 +31,4 @@ dist-ssr
 
 # Environment variables
 .env
-server/.env
+server/.envnetlify-env-vars.txt

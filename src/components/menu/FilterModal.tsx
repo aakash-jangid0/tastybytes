@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,7 +6,6 @@ import { useCategories } from '../../hooks/useCategories';
 
 // Dynamic icon component that renders Lucide icons by name
 const DynamicIcon = ({ icon, className }: { icon: string; className?: string }) => {
-  // Use type assertion to tell TypeScript this is a valid React component
   const LucideIcon = (LucideIcons[icon as keyof typeof LucideIcons] || LucideIcons.Tag) as React.ElementType;
   return <LucideIcon className={className} />;
 };
@@ -15,18 +14,12 @@ interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   priceRange: [number, number];
-  setPriceRange: (range: [number, number]) => void;
   selectedCategories: string[];
-  setSelectedCategories: (categories: string[]) => void;
   sortBy: string;
-  setSortBy: (sort: string) => void;
-  spiceLevels: string[];
-  setSpiceLevels: (levels: string[]) => void;
-  dietaryTags: string[];
-  setDietaryTags: (tags: string[]) => void;
+  onApply: (filters: { priceRange: [number, number]; selectedCategories: string[]; sortBy: string }) => void;
+  onReset: () => void;
 }
 
-// Sort options only - spice level and dietary preferences removed
 const sortOptions = [
   { value: 'popular', label: 'Most Popular' },
   { value: 'priceAsc', label: 'Price: Low to High' },
@@ -35,28 +28,61 @@ const sortOptions = [
   { value: 'nameDesc', label: 'Name: Z to A' },
 ];
 
+const DEFAULT_PRICE: [number, number] = [0, 2000];
+
 function FilterModal({
   isOpen,
   onClose,
   priceRange,
-  setPriceRange,
   selectedCategories,
-  setSelectedCategories,
   sortBy,
-  setSortBy,
+  onApply,
+  onReset,
 }: FilterModalProps) {
-  // Use the categories hook to get dynamic categories from the database
   const { categories } = useCategories();
-  
-  const handleCategoryToggle = (categorySlug: string) => {
-    if (selectedCategories.includes(categorySlug)) {
-      setSelectedCategories(selectedCategories.filter(c => c !== categorySlug));
-    } else {
-      setSelectedCategories([...selectedCategories, categorySlug]);
+
+  // Local draft state — only committed on Apply
+  const [draftPriceRange, setDraftPriceRange] = useState<[number, number]>(priceRange);
+  const [draftCategories, setDraftCategories] = useState<string[]>(selectedCategories);
+  const [draftSortBy, setDraftSortBy] = useState(sortBy);
+
+  // Sync draft state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDraftPriceRange(priceRange);
+      setDraftCategories(selectedCategories);
+      setDraftSortBy(sortBy);
     }
+  }, [isOpen]);
+
+  const handleCategoryToggle = (categorySlug: string) => {
+    setDraftCategories(prev =>
+      prev.includes(categorySlug)
+        ? prev.filter(c => c !== categorySlug)
+        : [...prev, categorySlug]
+    );
   };
 
-  // Handlers for spice level and dietary preferences removed
+  const handleApply = () => {
+    onApply({
+      priceRange: draftPriceRange,
+      selectedCategories: draftCategories,
+      sortBy: draftSortBy,
+    });
+    onClose();
+  };
+
+  const handleReset = () => {
+    setDraftPriceRange(DEFAULT_PRICE);
+    setDraftCategories([]);
+    setDraftSortBy('popular');
+    onReset();
+    onClose();
+  };
+
+  // Calculate the position percentages for the range track highlight
+  const minPercent = (draftPriceRange[0] / 2000) * 100;
+  const maxPercent = (draftPriceRange[1] / 2000) * 100;
 
   return (
     <AnimatePresence>
@@ -73,6 +99,7 @@ function FilterModal({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            data-lenis-prevent
             onClick={e => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
@@ -87,8 +114,8 @@ function FilterModal({
               <div>
                 <h3 className="font-medium mb-3">Sort By</h3>
                 <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  value={draftSortBy}
+                  onChange={(e) => setDraftSortBy(e.target.value)}
                   className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
                 >
                   {sortOptions.map(option => (
@@ -99,19 +126,53 @@ function FilterModal({
                 </select>
               </div>
 
-              {/* Price Range */}
+              {/* Price Range - Dual slider */}
               <div>
                 <h3 className="font-medium mb-3">Price Range</h3>
-                <div className="flex gap-4 items-center">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>₹{draftPriceRange[0]}</span>
+                  <span>₹{draftPriceRange[1]}</span>
+                </div>
+                <div className="relative h-2 mb-4">
+                  {/* Track background */}
+                  <div className="absolute inset-0 rounded-full bg-gray-200" />
+                  {/* Active range highlight */}
+                  <div
+                    className="absolute h-full rounded-full bg-orange-500"
+                    style={{ left: `${minPercent}%`, width: `${maxPercent - minPercent}%` }}
+                  />
+                  {/* Min slider */}
                   <input
                     type="range"
                     min="0"
                     max="2000"
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                    className="w-full"
+                    step="50"
+                    value={draftPriceRange[0]}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val <= draftPriceRange[1] - 50) {
+                        setDraftPriceRange([val, draftPriceRange[1]]);
+                      }
+                    }}
+                    className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
+                    style={{ zIndex: draftPriceRange[0] > 1900 ? 5 : 3 }}
                   />
-                  <span className="text-sm">₹{priceRange[1]}</span>
+                  {/* Max slider */}
+                  <input
+                    type="range"
+                    min="0"
+                    max="2000"
+                    step="50"
+                    value={draftPriceRange[1]}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= draftPriceRange[0] + 50) {
+                        setDraftPriceRange([draftPriceRange[0], val]);
+                      }
+                    }}
+                    className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-orange-500 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-pointer"
+                    style={{ zIndex: 4 }}
+                  />
                 </div>
               </div>
 
@@ -124,7 +185,7 @@ function FilterModal({
                       key={category.slug}
                       onClick={() => handleCategoryToggle(category.slug)}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
-                        selectedCategories.includes(category.slug)
+                        draftCategories.includes(category.slug)
                           ? 'bg-orange-500 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
@@ -135,14 +196,18 @@ function FilterModal({
                   ))}
                 </div>
               </div>
-
-              {/* Spice Level and Dietary Preferences sections removed */}
             </div>
 
-            <div className="sticky bottom-0 bg-white p-4 border-t">
+            <div className="sticky bottom-0 bg-white p-4 border-t flex gap-3">
               <button
-                onClick={onClose}
-                className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+                onClick={handleReset}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Reset
+              </button>
+              <button
+                onClick={handleApply}
+                className="flex-1 bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
               >
                 Apply Filters
               </button>

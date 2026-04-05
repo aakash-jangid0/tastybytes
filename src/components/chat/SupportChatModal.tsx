@@ -414,7 +414,7 @@ export const SupportChatModal: React.FC<SupportChatModalProps> = ({ orderId, cus
           </div>
 
           {/* ═══ Chat Content ═══ */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-b from-gray-50/50 via-white to-blue-50/30 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-b from-gray-50/50 via-white to-blue-50/30 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent" data-lenis-prevent>
             {customerCheckLoading || hasEverInitialized === null ? (
               /* ── Loading ── */
               <div className="flex items-center justify-center h-full">

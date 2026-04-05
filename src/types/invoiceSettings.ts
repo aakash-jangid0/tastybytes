@@ -9,11 +9,16 @@ export interface InvoiceSettings {
   company_email: string;
   company_website?: string;
   company_logo_url?: string;
+  company_name_color?: string;
+  logo_width?: number;
+  logo_height?: number;
   primary_color: string;
   secondary_color: string;
   accent_color: string;
   header_text?: string;
   footer_text?: string;
+  footer_line_1?: string;
+  footer_line_2?: string;
   terms_conditions?: string;
   tax_label_1: string;
   tax_rate_1: number;
@@ -70,7 +75,10 @@ export const defaultInvoiceSettings: Partial<InvoiceSettings> = {
   template_name: 'default',
   company_name: 'TastyBites',
   company_address: 'Malad west Mumbai Maharashtra',
-  company_email: 'tastybites@example.com',
+  company_email: 'tastybites@tastybites.in',
+  company_name_color: '#000000',
+  logo_width: 30,
+  logo_height: 10,
   primary_color: '#f97316',
   secondary_color: '#ffa500',
   accent_color: '#000000',
@@ -86,6 +94,8 @@ export const defaultInvoiceSettings: Partial<InvoiceSettings> = {
   receipt_title: 'RECEIPT',
   show_restaurant_contact: true,
   include_qr_code: false,
+  footer_line_1: '**SAVE PAPER SAVE NATURE !!**',
+  footer_line_2: 'YOU CAN NOW CALL US ON 1800 226344 (TOLL-FREE) FOR QUERIES/COMPLAINTS.',
   // Advanced features defaults
   watermark_opacity: 0.1,  font_family: 'helvetica',
   page_size: 'A4',

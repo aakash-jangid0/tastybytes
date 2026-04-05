@@ -293,7 +293,7 @@ export const AdminChatDashboard: React.FC = () => {
             </div>
 
             {/* Chat List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" data-lenis-prevent>
               {filteredChats.length === 0 ? (
                 <motion.div 
                   className="flex flex-col items-center justify-center h-64 text-gray-500"
@@ -406,7 +406,7 @@ export const AdminChatDashboard: React.FC = () => {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50/50 to-white">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50/50 to-white" data-lenis-prevent>
                   <AnimatePresence>
                     {currentChat.messages.map((message, index) => (
                       <motion.div

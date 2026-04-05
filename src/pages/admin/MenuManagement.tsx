@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Upload, X, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useInView } from 'react-intersection-observer';
-// Removed import of mock data
 import MenuTable from '../../components/admin/MenuTable';
 import CategorySelector from '../../components/admin/CategorySelector';
 import MenuStats from '../../components/admin/MenuStats';
@@ -37,11 +34,6 @@ function MenuManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
-  const scrollParentRef = useRef<HTMLDivElement>(null);
-  const [loadMoreRef, inView] = useInView({
-    threshold: 0.5,
-    triggerOnce: true,
-  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -119,17 +111,10 @@ function MenuManagement() {
   };
 
   const filteredItems = useMemo(() => {
-    return selectedCategory === 'all' 
-      ? items 
+    return selectedCategory === 'all'
+      ? items
       : items.filter(item => item.category === selectedCategory);
   }, [items, selectedCategory]);
-
-  const rowVirtualizer = useVirtualizer({
-    count: filteredItems.length,
-    getScrollElement: () => scrollParentRef.current,
-    estimateSize: () => 100,
-    overscan: 5,
-  });
 
   useEffect(() => {
     if (editingItem) {
@@ -431,41 +416,14 @@ function MenuManagement() {
         categories={dynamicCategories}
       />
       
-      <div ref={scrollParentRef} style={{ height: '600px', overflow: 'auto' }}>
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const item = filteredItems[virtualRow.index];
-            return (
-              <div
-                key={item.id}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <MenuTable
-                  items={[item]}
-                  onEdit={(item) => guardAction(() => setEditingItem(item))}
-                  onDelete={(id) => guardAction(() => handleDelete(id))}
-                  onToggleAvailability={(id) => guardAction(() => handleToggleAvailability(id))}
-                  selectedCategory={selectedCategory}
-                  isGuest={isGuest}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <MenuTable
+        items={filteredItems}
+        onEdit={(item) => guardAction(() => setEditingItem(item))}
+        onDelete={(id) => guardAction(() => handleDelete(id))}
+        onToggleAvailability={(id) => guardAction(() => handleToggleAvailability(id))}
+        selectedCategory={selectedCategory}
+        isGuest={isGuest}
+      />
 
       <AnimatePresence>
         {isModalOpen && (
@@ -480,6 +438,7 @@ function MenuManagement() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
               className="bg-white rounded-lg w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto"
+              data-lenis-prevent
             >
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">

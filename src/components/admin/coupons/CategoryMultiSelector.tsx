@@ -128,7 +128,7 @@ function CategoryMultiSelector({ selectedCategories, onSelectCategories, placeho
         />
       </div>
 
-      <div className="mt-3 max-h-60 overflow-y-auto border rounded-lg">
+      <div className="mt-3 max-h-60 overflow-y-auto border rounded-lg" data-lenis-prevent>
         {isLoading ? (
           <div className="p-3 text-center text-gray-500">Loading...</div>
         ) : filteredCategories.length > 0 ? (
