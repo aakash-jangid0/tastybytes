@@ -276,7 +276,7 @@ Each feature has a checkbox `[ ]` for testers to mark as tested. Features are gr
 | CHAT-002 | Issue category selector | Dropdown to select issue category | [ ] |
 | CHAT-003 | Issue description | Text field to describe issue | [ ] |
 | CHAT-004 | Start chat button | Initiates new support chat session | [ ] |
-| CHAT-005 | AI initial response | AI bot responds to first message using Gemini RAG | [ ] |
+| CHAT-005 | AI initial response | AI bot responds to first message using OpenAI RAG | [ ] |
 | CHAT-006 | Message display | Shows message bubbles with sender, text, timestamp | [ ] |
 | CHAT-007 | AI/Human indicator | Visual indicator showing if AI or human is responding | [ ] |
 | CHAT-008 | Message input | Text field for typing messages | [ ] |

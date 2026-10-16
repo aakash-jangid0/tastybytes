@@ -44,7 +44,7 @@ TastyBytes is a **full-stack restaurant management and online ordering platform*
 | Real-Time Kitchen Display | Kitchen staff see live orders and update item-level preparation status |
 | Counter POS | Counter staff create walk-in orders, process payments, manage tables |
 | Admin Management | Full restaurant back-office: menu, staff, customers, invoices, coupons, analytics |
-| AI Customer Support | Gemini-powered chatbot with human escalation via live chat |
+| AI Customer Support | OpenAI-powered chatbot with human escalation via live chat |
 | QR Code Ordering | Generate table-specific QR codes linking to the digital menu |
 | Dynamic Website CMS | Admin-configurable home page content, branding, and social links |
 
@@ -74,8 +74,8 @@ TastyBytes is a **full-stack restaurant management and online ordering platform*
 │  └─────────────────────┘                                     │
 │                                                               │
 │  ┌─────────────────────┐  ┌──────────────────────────────┐   │
-│  │   Razorpay Gateway   │  │   Google Gemini API          │   │
-│  │   (Payments)         │  │   (AI Chat - 2.0 Flash Lite) │   │
+│   │ Razorpay Gateway   │  │   OpenAI API                  │   │
+│   │ (Payments)         │  │   (AI Chat + Embeddings)      │   │
 │  └─────────────────────┘  └──────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -119,7 +119,7 @@ TastyBytes is a **full-stack restaurant management and online ordering platform*
 │                        BACKEND LAYER                             │
 │                                                                  │
 │   Supabase PostgreSQL   │ Supabase Auth    │ Supabase Realtime   │
-│   Supabase Edge Fns     │ Supabase Storage │ Gemini API          │
+│   Supabase Edge Fns     │ Supabase Storage │ OpenAI API          │
 │   (Deno Runtime)        │ (Image Buckets)  │ (AI Embeddings)     │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -132,7 +132,7 @@ TastyBytes is a **full-stack restaurant management and online ordering platform*
 | Request-Response | Supabase JS SDK (REST over HTTPS) | CRUD operations, queries |
 | Real-Time Push | Supabase Realtime (WebSocket) | Order status, menu changes, settings sync |
 | Real-Time Bidirectional | Socket.IO (WebSocket + Polling) | Support chat messaging |
-| External API Call | Edge Function → Gemini API | AI chat responses |
+| External API Call | Edge Function → OpenAI API | AI chat responses and embeddings |
 | Payment Redirect | Razorpay Checkout.js (Modal) | Payment processing |
 
 ---
@@ -176,7 +176,7 @@ TastyBytes is a **full-stack restaurant management and online ordering platform*
 | Service | Purpose |
 |---|---|
 | Razorpay | Payment gateway (Card, UPI, Online) |
-| Google Gemini API (2.0 Flash Lite) | AI-powered customer support chatbot |
+| OpenAI `gpt-4o-mini` and `text-embedding-3-small` | AI-powered customer support chatbot |
 | Supabase Storage | Image hosting for menu items, logos, documents |
 
 ### 3.4 Utilities & Libraries
@@ -380,7 +380,7 @@ src/
 | **Auth** | Email/password authentication with JWT sessions |
 | **Realtime** | WebSocket subscriptions for orders, menu, settings, categories |
 | **Storage** | Image buckets for menu items, logos, staff documents |
-| **Edge Functions** | AI chat (Gemini), invoice email, payment verification |
+| **Edge Functions** | AI chat (OpenAI), knowledge-base reindexing, invoice email, payment verification |
 | **Row Level Security (RLS)** | Data access control per user/role |
 
 ### 5.2 Supabase Client Configuration
@@ -399,7 +399,8 @@ Client initialized with:
 
 | Function | Runtime | Purpose | External APIs |
 |---|---|---|---|
-| `ai-chat` | Deno | AI-powered customer support with RAG | Google Gemini 2.0 Flash Lite |
+| `ai-chat` | Deno | AI-powered customer support with RAG | OpenAI `gpt-4o-mini` and `text-embedding-3-small` |
+| `reindex-knowledge` | Deno | Re-embed knowledge-base rows during provider migration | OpenAI `text-embedding-3-small` |
 | `send-invoice` | Deno | Email invoice PDF to customers | Email service |
 | `create-razorpay-order` | Deno | Create Razorpay payment order | Razorpay API |
 | `verify-payment` | Deno | Verify Razorpay payment signature | Razorpay API |
@@ -412,7 +413,7 @@ Client initialized with:
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
-                    │  Gemini API  │
+                    │  OpenAI API  │
                     │  Embedding   │
                     │ (768 dims)   │
                     └──────┬───────┘
@@ -426,8 +427,8 @@ Client initialized with:
                     └──────┬───────────────┘
                            │
                     ┌──────▼───────────────┐
-                    │  Gemini 2.0 Flash     │
-                    │  Lite Generation      │
+                    │  OpenAI gpt-4o-mini   │
+                    │  Chat Completion      │
                     │  (temp: 0.3,          │
                     │   max_tokens: 300)    │
                     └──────┬───────────────┘
@@ -779,7 +780,7 @@ knowledge_base (AI embeddings)
 |---|---|---|
 | id | UUID | PK |
 | content | TEXT | Knowledge article text |
-| embedding | VECTOR(768) | Gemini embedding vector |
+| embedding | VECTOR(768) | OpenAI `text-embedding-3-small` vector (768 dimensions) |
 | metadata | JSONB | Tags, categories |
 | created_at | TIMESTAMPTZ | |
 
@@ -977,7 +978,7 @@ interface PaymentData {
 
 ### 10.1 Overview
 
-The chatbot uses a **RAG (Retrieval-Augmented Generation)** architecture powered by Google Gemini API with vector embeddings stored in Supabase.
+The chatbot uses a **RAG (Retrieval-Augmented Generation)** architecture powered by OpenAI with vector embeddings stored in Supabase. Existing knowledge-base vectors must be re-embedded with OpenAI before enabling the OpenAI-backed `ai-chat` function.
 
 ### 10.2 Components
 
@@ -985,8 +986,8 @@ The chatbot uses a **RAG (Retrieval-Augmented Generation)** architecture powered
 |---|---|---|
 | Chat UI | React (SupportChatModal) | Floating button + modal window |
 | AI Backend | Supabase Edge Function (`ai-chat`) | Deno serverless function |
-| Embedding Model | Gemini Embedding API | 768-dimension vectors |
-| Generation Model | Gemini 2.0 Flash Lite | Low-latency text generation |
+| Embedding Model | OpenAI `text-embedding-3-small` | 768-dimension vectors (matching `VECTOR(768)`) |
+| Generation Model | OpenAI `gpt-4o-mini` | Chat completions |
 | Knowledge Store | PostgreSQL + pgvector | Vector similarity search |
 | Escalation | Socket.IO + support_chats table | Human handoff |
 
@@ -997,7 +998,7 @@ Customer opens chat
         │
         ▼
 ┌─────────────────────┐
-│  AI Chat (Gemini)    │ ◄── is_ai_active = true
+│  AI Chat (OpenAI)    │ ◄── is_ai_active = true
 │  - RAG retrieval     │
 │  - Context-aware     │
 │  - Max 300 tokens    │
@@ -1022,6 +1023,7 @@ Customer opens chat
 - **Table:** `knowledge_base`
 - **Vector Column:** `embedding VECTOR(768)`
 - **Search Function:** `match_knowledge(query_embedding, match_threshold=0.3, match_count=5)`
+- **Provider migration:** pause AI chat, deploy `reindex-knowledge`, run it using service-role authorization from a trusted operator environment, then deploy the OpenAI `ai-chat` function and resume chat. Do not compare OpenAI query vectors with the old Gemini vectors or place the service-role key in the browser/Netlify frontend environment.
 - **Algorithm:** Cosine similarity via pgvector extension
 
 ---
@@ -1281,7 +1283,7 @@ Create support_chats record
         ▼
 ┌───────────────────┐
 │ AI Handles Chat    │ ←── Edge Function: ai-chat
-│ (Gemini RAG)       │     - Embed query
+│ (OpenAI RAG)       │     - Embed query
 │                    │     - Search knowledge base
 │                    │     - Generate response
 └────────┬──────────┘
@@ -1504,7 +1506,7 @@ Client-Side (VITE_ prefix — exposed to browser):
 
 Server-Side (Edge Functions only — never exposed):
   SUPABASE_SERVICE_ROLE_KEY
-  GEMINI_API_KEY
+  OPENAI_API_KEY
   RAZORPAY_KEY_SECRET
 ```
 
@@ -1671,7 +1673,7 @@ Source (TypeScript + React)
 |---|---|---|---|
 | Supabase | BaaS (DB, Auth, RT, Storage) | API Keys (anon + service role) | @supabase/supabase-js |
 | Razorpay | Payment processing | Key ID + Secret | checkout.js (CDN) |
-| Google Gemini | AI chat (RAG) | API Key | REST API (fetch) |
+| OpenAI | AI chat (RAG) | API key stored in Supabase Edge Function secrets | REST API (fetch) |
 | Netlify | Hosting + Serverless | Git integration | CLI |
 
 ---

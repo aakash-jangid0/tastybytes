@@ -27,7 +27,7 @@
 | Backend    | Express.js (Node), Socket.IO                            |
 | Database   | Supabase (PostgreSQL 15.8)                              |
 | Payments   | Razorpay (primary), Stripe (dependency only)            |
-| AI         | Google Gemini (via Supabase Edge Function)              |
+| AI         | OpenAI (via Supabase Edge Function)                      |
 | Hosting    | Netlify (serverless functions), local dev               |
 | Charts     | Chart.js, Recharts                                      |
 | PDF        | jsPDF, jspdf-autotable                                  |
@@ -193,7 +193,8 @@ tastybytes/
 │
 ├── supabase/                      # ===== SUPABASE EDGE FUNCTIONS =====
 │   ├── functions/
-│   │   ├── ai-chat/index.ts       # AI chatbot (Gemini API + RAG)
+│   │   ├── ai-chat/index.ts       # AI chatbot (OpenAI API + RAG)
+│   │   ├── reindex-knowledge/     # Re-embeds knowledge using OpenAI
 │   │   └── send-invoice/index.ts  # Email invoice sender
 │   └── real_database_structure.json
 │
@@ -425,7 +426,8 @@ tastybytes/
 
 | Function | Purpose | API Used |
 |---|---|---|
-| `ai-chat` | RAG-based AI chatbot | Google Gemini API |
+| `ai-chat` | RAG-based AI chatbot | OpenAI API |
+| `reindex-knowledge` | Re-embed knowledge-base vectors before switching providers | OpenAI API |
 | `send-invoice` | Email invoice to customer | Unknown email service |
 
 ---
@@ -596,8 +598,6 @@ interface AuthContextType {
 | `VITE_SUPABASE_ANON_KEY` | Supabase | `eyJ...` (public anon key) |
 | `VITE_RAZORPAY_KEY_ID` | Razorpay | `rzp_test_...` (test mode) |
 | `VITE_RAZORPAY_KEY_SECRET` | Razorpay | Secret key |
-| `VITE_OPENAI_API_KEY` | OpenAI | `sk-...` |
-| `VITE_GEMINI_API_KEY` | Google Gemini | API key |
 | `VITE_BUSINESS_NAME` | App config | `TastyBites` |
 | `VITE_API_URL` | Express server | `http://localhost:5000/api` |
 | `VITE_SERVER_URL` | Socket.IO | `http://localhost:5000` |
@@ -622,8 +622,7 @@ interface AuthContextType {
 | `SUPABASE_ACCESS_TOKEN` | Supabase Management API |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Next.js (unused) |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay |
-| `OPENAI_API_KEY` | OpenAI |
-| `GEMINI_API_KEY` | Google Gemini |
+| `OPENAI_API_KEY` | OpenAI (Supabase Edge Function secret; never expose to the browser) |
 
 ### External Services Summary
 
@@ -631,8 +630,7 @@ interface AuthContextType {
 |---|---|---|---|
 | **Supabase** | Database, Auth, Realtime, Storage, Edge Functions | **Active** | Primary backend |
 | **Razorpay** | Online payments | **Active (Test Mode)** | `rzp_test_` keys, checkout modal loads dynamically |
-| **Google Gemini** | AI chatbot responses | **Active** | Used in `ai-chat` Edge Function for RAG |
-| **OpenAI** | Unknown | **Configured but unused** | API key in env but no code references OpenAI SDK |
+| **OpenAI** | AI chat generation and embeddings | **Active** | `gpt-4o-mini` and `text-embedding-3-small` via Supabase Edge Functions |
 | **Socket.IO** | Real-time communication | **Partially active** | Server configured, client has contexts, but **Supabase Realtime is used instead** for all real-time features |
 | **Stripe** | Payments | **Dead** | Listed in package.json dependencies, `server/routes/stripe.js` exists, but no frontend integration |
 | **Netlify** | Serverless deployment | **Configured** | Functions in `netlify/functions/`, `netlify.json` exists |
@@ -644,7 +642,7 @@ interface AuthContextType {
 
 | Issue | Severity | Details |
 |---|---|---|
-| **API keys in .env committed** | HIGH | `.env` contains real Supabase keys, Razorpay test keys, OpenAI key, Gemini key. Should be in `.env.local` (gitignored) |
+| **API keys in workspace configuration** | HIGH | `netlify-env-vars.txt` previously contained an OpenAI API key. The value has been removed from the file; revoke/rotate the exposed key and store its replacement only as a Supabase Edge Function secret. |
 | **VITE_RAZORPAY_KEY_SECRET exposed** | HIGH | Secret key prefixed with `VITE_` means it's bundled into client-side JavaScript |
 | **No .gitignore verification** | MEDIUM | Cannot confirm `.env` is gitignored (not a git repo) |
 | **CORS allows all origins** | MEDIUM | Server configured with `cors({ origin: '*' })` |
@@ -659,7 +657,7 @@ interface AuthContextType {
 
 1. **Add route protection immediately**: Wrap admin/kitchen/counter routes with `ProtectedRoute` and implement role checking
 2. **Remove `VITE_RAZORPAY_KEY_SECRET`**: Secret keys must NEVER be in client-side code. Move payment verification to server/edge function
-3. **Remove `VITE_OPENAI_API_KEY`**: API keys should not be in the frontend bundle
+3. **Keep `OPENAI_API_KEY` server-side only**: configure it as a Supabase Edge Function secret; never use a `VITE_`-prefixed key
 4. **Secure `.env` files**: Ensure they are gitignored; move secrets to deployment environment variables
 5. **Remove `run_sql` RPC usage**: Direct SQL execution from frontend is extremely dangerous
 
@@ -667,7 +665,7 @@ interface AuthContextType {
 
 1. **Remove duplicate files**: Consolidate the ~30+ duplicate components, contexts, and configs
 2. **Delete unused directories**: `app/`, root-level `models/`, `routes/`, `middleware/`, `pages/api/`
-3. **Remove dead features**: Socket.IO contexts (replaced by Supabase Realtime), Stripe dependency, OpenAI key
+3. **Remove dead features**: Socket.IO contexts (replaced by Supabase Realtime), Stripe dependency
 4. **Consolidate Supabase clients**: Keep only `src/lib/supabase.ts` for frontend
 
 ### Priority 3: Architecture

@@ -1,0 +1,28 @@
+# Netlify Environment Variables for new deployment
+# Copy these into your new Netlify site: Site settings → Environment variables
+
+JWT_SECRET=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlZXR5bmFmY3BvZmJ6cGdyc3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2OTA4NzEsImV4cCI6MjA2MTI2Njg3MX0.CBFoP91g402Gag7FvnH7Q0ODYHx-WvolbKB5mVrc40E
+
+NEXT_PUBLIC_SUPABASE_URL=https://xeetynafcpofbzpgrsvn.supabase.co
+# OPENAI_API_KEY must be set as a Supabase Edge Function secret, not in Netlify.
+
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlZXR5bmFmY3BvZmJ6cGdyc3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2OTA4NzEsImV4cCI6MjA2MTI2Njg3MX0.CBFoP91g402Gag7FvnH7Q0ODYHx-WvolbKB5mVrc40E
+
+SUPABASE_URL=https://xeetynafcpofbzpgrsvn.supabase.co
+
+VITE_API_URL=http://localhost:5000/api
+
+VITE_BUSINESS_NAME=TastyBites
+
+VITE_RAZORPAY_KEY_ID=rzp_test_OjVlCpSLytdwMx
+
+VITE_RAZORPAY_KEY_SECRET=970t2T1ivVsJW5gqWysKEshp
+
+VITE_SOCKET_URL=http://localhost:5000
+
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlZXR5bmFmY3BvZmJ6cGdyc3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2OTA4NzEsImV4cCI6MjA2MTI2Njg3MX0.CBFoP91g402Gag7FvnH7Q0ODYHx-WvolbKB5mVrc40E
+
+VITE_SUPABASE_URL=https://xeetynafcpofbzpgrsvn.supabase.co
+
+SECRETS_SCAN_OMIT_KEYS=SUPABASE_ANON_KEY,SUPABASE_URL

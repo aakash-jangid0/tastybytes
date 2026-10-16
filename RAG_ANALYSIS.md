@@ -1,7 +1,7 @@
 # RAG Analysis — TastyBytes AI Chatbot
 
 > **Project:** TastyBytes Version 3 (ChatBot)
-> **Stack:** React + Supabase Edge Functions (Deno) + Gemini API + pgvector
+> **Stack:** React + Supabase Edge Functions (Deno) + OpenAI API + pgvector
 > **Date:** March 2026
 
 ---
@@ -15,7 +15,7 @@
 
 ### Why RAG Exists
 
-A vanilla LLM (like Gemini or GPT-4) has two fundamental limitations for business use:
+A vanilla LLM (such as an OpenAI GPT model) has two fundamental limitations for business use:
 
 | Problem | What Happens Without RAG |
 |---------|--------------------------|
@@ -36,7 +36,7 @@ With RAG:     User Query → Search your KB → Relevant facts + Query → LLM �
 
 ### Short Answer: A Real Problem, But Partially Solved
 
-RAG is **legitimately needed** here — the AI needs to answer questions about TastyBytes' specific menu, prices, hours, and policies. Without RAG, Gemini would either refuse ("I don't know your menu") or hallucinate restaurant-specific details.
+RAG is **legitimately needed** here — the AI needs to answer questions about TastyBytes' specific menu, prices, hours, and policies. Without RAG, the model would either refuse ("I don't know your menu") or hallucinate restaurant-specific details.
 
 ### What It's Actually Doing
 
@@ -80,7 +80,7 @@ Customer Message
 │  supabase/functions/ai-chat/index.ts         │
 │                                             │
 │  1. getEmbedding(message)                   │
-│     └─ POST → Gemini embedding-001 API      │
+│     └─ POST → OpenAI text-embedding-3-small │
 │     └─ Returns: 768-dimension float vector  │
 │                                             │
 │  2. searchKnowledge(vector)                 │
@@ -89,7 +89,7 @@ Customer Message
 │     └─ threshold: 0.3 | top-k: 5           │
 │                                             │
 │  3. generateResponse(message, top5docs)     │
-│     └─ POST → Gemini 2.0-flash-lite API    │
+│     └─ POST → OpenAI gpt-4o-mini API        │
 │     └─ SYSTEM_PROMPT + context + question  │
 │     └─ temp: 0.3 | maxTokens: 300          │
 └─────────────────────────────────────────────┘
@@ -101,16 +101,17 @@ Customer Message
 ### Step 1 — Embedding the Query
 
 ```typescript
-// File: supabase/functions/ai-chat/index.ts:61-83
+// File: supabase/functions/ai-chat/index.ts
 async function getEmbedding(text: string): Promise<number[]> {
-    const response = await fetchWithRetry(GEMINI_EMBED_URL, {
+    const response = await fetchWithRetry("https://api.openai.com/v1/embeddings", {
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
         body: JSON.stringify({
-            model: "models/gemini-embedding-001",
-            content: { parts: [{ text }] },
-            outputDimensionality: 768,  // 768-dimensional vector
+            model: "text-embedding-3-small",
+            input: text,
+            dimensions: 768,
         }),
     });
-    return data.embedding.values;  // array of 768 floats
+    return data.data[0].embedding;  // array of 768 floats
 }
 ```
 
@@ -139,7 +140,7 @@ const contextText = context.map((c, i) => `${i + 1}. ${c}`).join("\n");
 // SYSTEM_PROMPT + contextText + "\n\nCustomer question: " + userMessage
 ```
 
-The system prompt strictly instructs Gemini:
+The system prompt strictly instructs OpenAI:
 - **Only** answer from the provided context
 - If not found in context → suggest escalating to human support
 - Keep answers under 3 sentences
@@ -152,17 +153,17 @@ knowledge_base table (26 rows):
 ├── id          UUID
 ├── content     TEXT       ← the actual knowledge chunk
 ├── category    TEXT       ← menu / faq / hours / payment / policy / service / general
-├── embedding   vector(768) ← pre-computed by Gemini at seed time
+├── embedding   vector(768) ← must be re-indexed using OpenAI before switching
 └── metadata    JSONB      ← { source: "menu_items" | "faq" | "restaurant_info" }
 ```
 
 ---
 
-## 4. Gemini Free API Key — Cost & Efficiency Analysis
+## 4. OpenAI Models and Request Pattern
 
 ### Current API Call Pattern
 
-Every single customer message triggers **exactly 2 Gemini API calls**:
+Every single customer message triggers **two OpenAI API calls**:
 
 ```
 Message: "hi" → 1 embedding call + 1 generation call
@@ -210,14 +211,9 @@ None of this is cached. Every request is treated as completely fresh.
 
 The KB entries were manually seeded once. The `embedding` column was computed at seed time. If you update the `content` of a KB row without re-running the embedding, the vector no longer matches the text — searches silently return wrong results.
 
-### Gemini Free Tier Limits (as of 2026)
+The active models are `text-embedding-3-small` (768 dimensions) and `gpt-4o-mini`. OpenAI usage is billed to the configured OpenAI account; check the account's current pricing and usage limits before production rollout. There is no free-tier quota assumed by this implementation.
 
-| Model | Free Tier Limit | Paid Rate |
-|-------|----------------|-----------|
-| `gemini-embedding-001` | 1,500 requests/day | $0.00025/1K tokens |
-| `gemini-2.0-flash-lite` | 1,500 requests/day | $0.075/1M input tokens |
-
-With **2 calls per message**, the free tier allows roughly **750 customer messages per day** before hitting rate limits. The retry logic (2s, 4s backoff on 429) means rate-limited customers wait up to 6 seconds before getting an error.
+The retry logic (2s, 4s backoff on HTTP 429) means rate-limited customers may wait up to 6 seconds before getting an error.
 
 ### Problem 5: No Fallback Knowledge for Unknown Answers
 
@@ -225,7 +221,7 @@ When the similarity search returns no results (score below 0.3), the generation 
 ```
 "No relevant information found in our knowledge base."
 ```
-Gemini then sees this and typically responds with the human-escalation message. There's no fallback to try a broader search or a different retrieval strategy.
+The model then sees this and typically responds with the human-escalation message. There's no fallback to try a broader search or a different retrieval strategy.
 
 ### Summary of Inefficiencies
 
@@ -454,7 +450,7 @@ const TRIVIAL_PATTERNS = /^(hi|hello|hey|ok|okay|thanks|thank you|bye|goodbye|ye
 let aiResponse: string;
 
 if (TRIVIAL_PATTERNS.test(message.trim())) {
-    // Skip embedding + search, just respond with Gemini using chat history only
+    // Skip embedding + search, just respond with OpenAI using chat history only
     aiResponse = await generateResponseWithHistory(message, [], conversationHistory);
 } else {
     // Full RAG pipeline
@@ -516,11 +512,13 @@ Customer's current order:
 | File | Role |
 |------|------|
 | [supabase/functions/ai-chat/index.ts](supabase/functions/ai-chat/index.ts) | Entire RAG pipeline (embed → search → generate) |
+| [supabase/functions/reindex-knowledge/index.ts](supabase/functions/reindex-knowledge/index.ts) | One-time/repeatable OpenAI embedding backfill for the existing knowledge base |
 | [src/hooks/useAiChat.ts](src/hooks/useAiChat.ts) | Frontend: sends messages, handles rate limit errors |
 | [src/components/chat/SupportChatModal.tsx](src/components/chat/SupportChatModal.tsx) | UI: AI chat + human escalation modal |
 
 **Supabase tables involved:**
 - `knowledge_base` — 26 rows, vector(768), manually seeded
+- Existing Gemini vectors must be re-indexed with OpenAI before the OpenAI `ai-chat` function is enabled. Pause chat, deploy and invoke the protected `reindex-knowledge` function from a trusted operator environment, then deploy the OpenAI `ai-chat` function and resume chat. It uses `OPENAI_API_KEY` and service-role authorization; do not expose service-role credentials in the browser or Netlify frontend environment.
 - `chat_messages` — conversation history (not currently used in LLM prompt)
 - `support_chats` — chat sessions with `is_ai_active` flag
 - `menu_items` — 20 live items, **disconnected from knowledge_base**
