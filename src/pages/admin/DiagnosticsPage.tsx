@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   AlertTriangle, CheckCircle2, Server, Database, 
@@ -8,14 +8,16 @@ import {
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import diagnosticService from '../../utils/diagnosticService';
+import { Link } from 'react-router-dom';
 
 // Import new diagnostic components
 import PerformanceMetricsPanel from '../../components/diagnostics/PerformanceMetricsPanel';
-import NetworkPanel from '../../components/diagnostics/NetworkPanel';
+import NetworkPanel, { type NetworkRequest } from '../../components/diagnostics/NetworkPanel';
 import StorageInspector from '../../components/diagnostics/StorageInspector';
-import SystemInfoPanel from '../../components/diagnostics/SystemInfoPanel';
+import SystemInfoPanel, { type ResourceUsage } from '../../components/diagnostics/SystemInfoPanel';
 import ErrorAnalyticsPanel from '../../components/diagnostics/ErrorAnalyticsPanel';
 import UtilityButtons from '../../components/diagnostics/UtilityButtons';
+import { type PerformanceMetrics } from '../../components/diagnostics/PerformanceMetricsPanel';
 
 type ErrorCategory = 'frontend' | 'backend' | 'database' | 'network' | 'auth' | 'resources' | 'other';
 type StatusType = 'loading' | 'online' | 'offline' | 'error' | 'warning';
@@ -31,6 +33,17 @@ interface DiagnosticError {
   source?: string;
 }
 
+interface ServiceDiagnosticError {
+  id?: string;
+  message?: unknown;
+  category?: string;
+  timestamp?: Date | string;
+  suggestion?: string;
+  details?: unknown;
+  code?: string;
+  source?: string;
+}
+
 interface SystemStatus {
   name: string;
   status: StatusType;
@@ -38,26 +51,48 @@ interface SystemStatus {
   lastChecked: Date;
 }
 
-// Create a dummy supabase client for when the real one isn't available
-const dummySupabase = {
-  from: () => ({
-    select: () => ({
-      limit: () => Promise.resolve({ 
-        data: null, 
-        error: { message: 'Supabase not configured properly' } 
-      })
-    })
-  }),
-  auth: {
-    getSession: () => Promise.resolve({ 
-      data: null, 
-      error: { message: 'Supabase not configured properly' } 
-    })
+interface DiagnosticWebSocket {
+  type: string;
+  status: string;
+  url?: string;
+  error?: string;
+}
+
+const formatErrorDetails = (details: unknown): string | undefined => {
+  if (details === undefined || details === null) return undefined;
+  if (typeof details === 'string') return details;
+
+  try {
+    return JSON.stringify(details);
+  } catch {
+    return String(details);
   }
 };
 
-// Use the real supabase client if available, otherwise use the dummy
-const supabaseClient = supabase || dummySupabase;
+const normalizeServiceError = (error: ServiceDiagnosticError): DiagnosticError => {
+  const source = error.source ?? 'unknown';
+  const categories: ErrorCategory[] = ['frontend', 'backend', 'database', 'network', 'auth', 'resources', 'other'];
+  const inferredCategory: ErrorCategory =
+    source === 'fetch' ? 'backend' :
+    source === 'websocket' || source === 'socket.io' ? 'network' :
+    source === 'auth' ? 'auth' :
+    source === 'database' ? 'database' :
+    source === 'resource' ? 'resources' :
+    source === 'unknown' ? 'other' : 'frontend';
+  const category = categories.find(candidate => candidate === error.category) ?? inferredCategory;
+  const timestamp = error.timestamp ? new Date(error.timestamp) : new Date();
+
+  return {
+    id: error.id ?? `${timestamp.getTime()}-${source}-${String(error.message ?? 'error')}`,
+    message: typeof error.message === 'string' ? error.message : String(error.message ?? 'Unknown diagnostic error'),
+    category,
+    timestamp: Number.isNaN(timestamp.getTime()) ? new Date() : timestamp,
+    suggestion: error.suggestion,
+    details: formatErrorDetails(error.details),
+    code: error.code,
+    source
+  };
+};
 
 export default function DiagnosticsPage() {
   const [errors, setErrors] = useState<DiagnosticError[]>([]);
@@ -66,14 +101,15 @@ export default function DiagnosticsPage() {
   const [activeCategory, setActiveCategory] = useState<ErrorCategory | 'all'>('all');
   const [activeTab, setActiveTab] = useState<string>('overview');
     // Advanced diagnostics states
-  const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
-  const [networkRequests, setNetworkRequests] = useState<any[]>([]);
-  const [environmentInfo, setEnvironmentInfo] = useState<any>({});
-  const [resourceUsage, setResourceUsage] = useState<any>({});
-  const [localStorageItems, setLocalStorageItems] = useState<any>({});
-  const [sessionStorageItems, setSessionStorageItems] = useState<any>({});
-  const [cookieItems, setCookieItems] = useState<any>({});
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics>({});
+  const [networkRequests, setNetworkRequests] = useState<NetworkRequest[]>([]);
+  const [environmentInfo, setEnvironmentInfo] = useState<Record<string, unknown>>({});
+  const [resourceUsage, setResourceUsage] = useState<ResourceUsage>({});
+  const [localStorageItems, setLocalStorageItems] = useState<Record<string, string>>({});
+  const [sessionStorageItems, setSessionStorageItems] = useState<Record<string, string>>({});
+  const [cookieItems, setCookieItems] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const runChecksRef = React.useRef<() => Promise<void>>(async () => undefined);
   
   // System status states
   const [statuses, setStatuses] = useState<SystemStatus[]>([
@@ -101,26 +137,28 @@ export default function DiagnosticsPage() {
       const serviceErrors = diagnosticService.getErrors();
       if (serviceErrors.length > 0) {
         setErrors(prev => {
-          // Merge errors, avoiding duplicates by id
           const existingIds = new Set(prev.map(e => e.id));
-          const newErrors = serviceErrors.filter(e => !existingIds.has(e.id));
-          return [...prev, ...newErrors];
+          const newErrors = serviceErrors
+            .map((error: ServiceDiagnosticError) => normalizeServiceError(error))
+            .filter(error => !existingIds.has(error.id));
+          return [...newErrors, ...prev];
         });
       }
     };
     
     // Subscribe to error updates from diagnostic service
-    const unsubscribe = diagnosticService.subscribe((updatedErrors: DiagnosticError[]) => {
+    const unsubscribe = diagnosticService.subscribe((updatedErrors: ServiceDiagnosticError[]) => {
       setErrors(prev => {
-        // Merge errors, avoiding duplicates by id
         const existingIds = new Set(prev.map(e => e.id));
-        const newErrors = updatedErrors.filter(e => !existingIds.has(e.id));
-        return [...prev, ...newErrors];
+        const newErrors = updatedErrors
+          .map((error: ServiceDiagnosticError) => normalizeServiceError(error))
+          .filter(error => !existingIds.has(error.id));
+        return [...newErrors, ...prev];
       });
     });    
     // Subscribe to network activity with throttling to prevent too many updates
-    let networkUpdateTimeout: any;
-    const unsubscribeNetwork = diagnosticService.subscribeToNetworkActivity((requests: any[]) => {
+    let networkUpdateTimeout: ReturnType<typeof setTimeout>;
+    const unsubscribeNetwork = diagnosticService.subscribeToNetworkActivity((requests: NetworkRequest[]) => {
       // Throttle updates to reduce rendering load
       clearTimeout(networkUpdateTimeout);
       networkUpdateTimeout = setTimeout(() => {
@@ -133,12 +171,7 @@ export default function DiagnosticsPage() {
       setIsLoading(true);
       loadDiagnosticData();
       try {
-        await checkReactStatus();
-        await checkAPIStatus();
-        await checkDatabaseStatus();
-        await checkAuthStatus();
-        checkNetworkStatus();
-        await checkWebSocketStatus();
+        await runChecksRef.current();
       } catch (error) {
         console.error('Error running diagnostics:', error);
       } finally {
@@ -147,47 +180,29 @@ export default function DiagnosticsPage() {
     };
     
     runChecks();
-      // Set up an interval to refresh data periodically    // Use a longer interval to reduce UI stuttering and performance impact
+    const diagnosticsInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        runChecks();
+      }
+    }, 30000);
+
+    // Refresh collected data without rerunning system checks.
     const dataRefreshInterval = setInterval(() => {
-      // Only refresh if the tab is visible to reduce background CPU usage
-      if (document.visibilityState === 'visible' && activeTab !== 'network') {
-        // Skip automatic refresh when on network tab to prevent freezing
+      if (document.visibilityState === 'visible') {
         loadDiagnosticData();
       }
-    }, 15000); // Increased from 10s to 15s for better performance
-      // Cleanup function to unsubscribe
+    }, 15000);
+
     return () => {
       unsubscribe();
       unsubscribeNetwork();
+      clearInterval(diagnosticsInterval);
       clearInterval(dataRefreshInterval);
-      clearTimeout(networkUpdateTimeout); // Clear any pending network updates
+      clearTimeout(networkUpdateTimeout);
     };
-  }, []);
-
-  // Run diagnostics
-  useEffect(() => {
-    const runDiagnostics = async () => {
-      await checkReactStatus();
-      await checkAPIStatus();
-      await checkDatabaseStatus();
-      await checkAuthStatus();
-      await checkNetworkStatus();
-      await checkWebSocketStatus();
-      
-      setIsLoading(false);
-    };
-    
-    runDiagnostics();
-    
-    // Re-run diagnostics every 30 seconds
-    const interval = setInterval(() => {
-      runDiagnostics();
-    }, 30000);
-    
-    return () => clearInterval(interval);
   }, []);
   
-  const updateStatus = (name: string, status: StatusType, message?: string) => {
+  const updateStatus = useCallback((name: string, status: StatusType, message?: string) => {
     setStatuses(prev => 
       prev.map(s => s.name === name ? { 
         ...s, 
@@ -196,26 +211,29 @@ export default function DiagnosticsPage() {
         lastChecked: new Date() 
       } : s)
     );
-  };
-  const addError = (message: string, category: ErrorCategory, details?: string, suggestion?: string) => {
-    setErrors(prev => [
-      ...prev, 
-      {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  }, []);
+  const addError = useCallback((message: string, category: ErrorCategory, details?: string, suggestion?: string) => {
+    setErrors(prev => {
+      const duplicateIndex = prev.findIndex(error => error.category === category && error.message === message);
+      const nextError: DiagnosticError = {
+        id: duplicateIndex >= 0 ? prev[duplicateIndex].id : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         message,
         category,
         timestamp: new Date(),
         details,
         suggestion
-      }
-    ]);
-  };
-  
-  const addSuccess = (message: string) => {
-    setSuccesses(prev => [...prev, message]);
-  };
+      };
 
-  const checkReactStatus = async () => {
+      if (duplicateIndex < 0) return [nextError, ...prev];
+      return prev.map((error, index) => index === duplicateIndex ? nextError : error);
+    });
+  }, []);
+  
+  const addSuccess = useCallback((message: string) => {
+    setSuccesses(prev => prev.includes(message) ? prev : [...prev, message]);
+  }, []);
+
+  const checkReactStatus = useCallback(async () => {
     try {
       // If this code executes, React is working
       updateStatus('React Application', 'online');
@@ -225,27 +243,21 @@ export default function DiagnosticsPage() {
       updateStatus('React Application', 'error', error);
       addError('React rendering error', 'frontend', error, 'Try clearing your browser cache or restarting the development server');
     }
-  };
+  }, [addError, addSuccess, updateStatus]);
 
-  const checkAPIStatus = async () => {
+  const checkAPIStatus = useCallback(async () => {
     try {
       updateStatus('API Server', 'loading');
       
-      const response = await fetch('/api/healthCheck', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(5000) // 5 second timeout
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        updateStatus('API Server', 'online', data.status);
+      const { error } = await supabase.from('menu_items').select('id').limit(1);
+
+      if (!error) {
+        updateStatus('API Server', 'online', 'Supabase API is responding');
         addSuccess('API server is responding correctly');
       } else {
-        const errorText = await response.text();
-        updateStatus('API Server', 'error', `Status ${response.status}`);
-        addError(`API server returned status ${response.status}`, 'backend', errorText, 
-                'Check if the server is running and configured correctly');
+        updateStatus('API Server', 'error', error.message);
+        addError('API server request failed', 'backend', error.message,
+          'Check the Supabase API configuration and connectivity');
       }
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
@@ -253,21 +265,12 @@ export default function DiagnosticsPage() {
       addError('API server connection failed', 'backend', error, 
               'Make sure the backend server is running on the correct port');
     }
-  };
-  const checkDatabaseStatus = async () => {
+  }, [addError, addSuccess, updateStatus]);
+  const checkDatabaseStatus = useCallback(async () => {
     try {
       updateStatus('Database', 'loading');
       
-      if (!supabaseClient) {
-        updateStatus('Database', 'error', 'Supabase client not initialized');
-        addError('Database configuration error', 'database', 
-                'Supabase client not initialized', 
-                'Check your environment variables for VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
-        return;
-      }
-      
-      // Try to execute a simple query to check database connectivity
-      const { error } = await supabaseClient.from('health_check').select('*').limit(1);
+      const { error } = await supabase.from('orders').select('id').limit(1);
       
       if (error) {
         updateStatus('Database', 'error', error.message);
@@ -283,14 +286,14 @@ export default function DiagnosticsPage() {
       addError('Failed to connect to database', 'database', error, 
               'Verify that your database is running and accessible');
     }
-  };
+  }, [addError, addSuccess, updateStatus]);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       updateStatus('Authentication', 'loading');
       
       // Check if we have any session
-      const { error: sessionError } = await supabaseClient.auth.getSession();
+      const { error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         updateStatus('Authentication', 'error', sessionError.message);
@@ -306,9 +309,9 @@ export default function DiagnosticsPage() {
       addError('Authentication service failure', 'auth', error, 
               'Check your authentication configuration and credentials');
     }
-  };
+  }, [addError, addSuccess, updateStatus]);
 
-  const checkNetworkStatus = () => {
+  const checkNetworkStatus = useCallback(() => {
     try {
       updateStatus('Internet Connection', navigator.onLine ? 'online' : 'offline');
       
@@ -323,26 +326,25 @@ export default function DiagnosticsPage() {
       updateStatus('Internet Connection', 'error', error);
       addError('Failed to check network status', 'network', error);
     }
-  };
-  // Check WebSocket connections - new function
-  const checkWebSocketStatus = async () => {
+  }, [addError, addSuccess, updateStatus]);
+  const checkWebSocketStatus = useCallback(async () => {
     try {
       updateStatus('WebSocket', 'loading');
       
       // Get WebSocket status from diagnostic service
-      const webSockets = diagnosticService.getWebSocketStatus();
+      const webSockets: DiagnosticWebSocket[] = diagnosticService.getWebSocketStatus();
       
       if (webSockets.length > 0) {
         // Check if any connections are open
-        const hasActiveConnection = webSockets.some((ws: any) => ws.status === 'open');
-        const socketIOConnections = webSockets.filter((ws: any) => ws.type === 'socket.io');
-        const nativeConnections = webSockets.filter((ws: any) => ws.type === 'native');
+        const hasActiveConnection = webSockets.some(ws => ws.status === 'open');
+        const socketIOConnections = webSockets.filter(ws => ws.type === 'socket.io');
         
         if (hasActiveConnection) {
-          const activeConnections = webSockets.filter((ws: any) => ws.status === 'open');
-          const connectionInfo = activeConnections.map((ws: any) => 
-            `${ws.type} on ${new URL(ws.url).port || 'default'}`
-          ).join(', ');
+          const activeConnections = webSockets.filter(ws => ws.status === 'open');
+          const connectionInfo = activeConnections.map(ws => {
+            const port = ws.url ? new URL(ws.url, window.location.href).port : '';
+            return `${ws.type} on ${port || 'default'}`;
+          }).join(', ');
           
           updateStatus('WebSocket', 'online', 
             `${activeConnections.length} active connection(s): ${connectionInfo}`
@@ -355,8 +357,8 @@ export default function DiagnosticsPage() {
           // Provide more detailed error based on connection types
           if (socketIOConnections.length > 0) {
             const errors = socketIOConnections
-              .filter((ws: any) => ws.error)
-              .map((ws: any) => ws.error)
+              .filter(ws => ws.error)
+              .map(ws => ws.error)
               .join('; ');
               
             addError('Socket.IO connections not active', 'network', 
@@ -369,60 +371,38 @@ export default function DiagnosticsPage() {
           }
         }
       } else {
-        // Attempt to check if port 5000-5005 are accessible
-        updateStatus('WebSocket', 'offline', 'Attempting to detect WebSocket server...');
-        
-        try {
-          // Try to do a quick check for WebSocket server availability
-          const socketServerCheckPromises = [5000, 5001, 5002, 5003, 5004, 5005].map(port => 
-            fetch(`http://localhost:${port}/api/health`)
-              .then(res => ({ port, available: res.ok }))
-              .catch(() => ({ port, available: false }))
-          );
-          
-          const results = await Promise.all(socketServerCheckPromises);
-          const availablePorts = results.filter(r => r.available).map(r => r.port);
-          
-          if (availablePorts.length > 0) {
-            updateStatus('WebSocket', 'warning', `Server detected on ports ${availablePorts.join(', ')} but no active connections`);
-            addError('WebSocket server available but no connections', 'network', 
-                    `Server appears to be running on ports ${availablePorts.join(', ')} but no WebSocket connections have been established`,
-                    'Check the SocketContext.tsx implementation to ensure it\'s attempting to connect to the correct port');
-          } else {
-            updateStatus('WebSocket', 'offline', 'No WebSocket server detected on ports 5000-5005');
-            addError('No WebSocket server detected', 'network', 
-                    'Could not detect a WebSocket server on the expected ports (5000-5005)',
-                    'Make sure the server is running with WebSocket support enabled');
-          }
-        } catch (e) {
-          updateStatus('WebSocket', 'offline', 'No connections detected');
-          addError('No WebSocket connections detected', 'network', 
-                  'No WebSocket connections have been established',
-                  'Check your WebSocket server configuration and network connectivity');
-        }
+        updateStatus('WebSocket', 'warning', 'No active WebSocket connections detected');
       }
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       updateStatus('WebSocket', 'error', error);
       addError('WebSocket status check failed', 'network', error);
     }
-  };
+  }, [addError, addSuccess, updateStatus]);
 
-  const runAllChecks = async () => {
-    setIsLoading(true);
-    setErrors([]);
-    setSuccesses([]);
-    
+  runChecksRef.current = async () => {
     await checkReactStatus();
     await checkAPIStatus();
     await checkDatabaseStatus();
     await checkAuthStatus();
     await checkNetworkStatus();
     await checkWebSocketStatus();
-    
-    setIsLoading(false);
-    toast.success('All diagnostic checks completed');
   };
+
+  const runAllChecks = useCallback(async () => {
+    setIsLoading(true);
+    setErrors([]);
+    setSuccesses([]);
+    try {
+      await runChecksRef.current();
+      toast.success('All diagnostic checks completed');
+    } catch (error) {
+      console.error('Error running diagnostics:', error);
+      toast.error('Some diagnostic checks could not be completed');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const filteredErrors = activeCategory === 'all' 
     ? errors 
@@ -446,7 +426,8 @@ export default function DiagnosticsPage() {
       const dataStr = JSON.stringify(exportData, null, 2);
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
       
-      const exportFileDefaultName = `diagnostics-export-${new Date().toISOString()}.json`;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const exportFileDefaultName = `diagnostics-export-${timestamp}.json`;
       const linkElement = document.createElement('a');
       linkElement.setAttribute('href', dataUri);
       linkElement.setAttribute('download', exportFileDefaultName);
@@ -472,7 +453,8 @@ export default function DiagnosticsPage() {
       toast(`Injecting test error: ${errorType}`);
       diagnosticService.injectTestError(errorType);
     } catch (error) {
-      // This will be caught by our error handling system, so no need to do anything here
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Test error injected: ${message}`);
     }
   };
   // Search functionality for errors
@@ -524,10 +506,9 @@ export default function DiagnosticsPage() {
                 Overview
               </button>
             <button 
-                onClick={() => {
-                  setActiveTab('errors');
-                  setIsLoading(false); // Reset loading state when switching to errors tab
-                }} 
+              onClick={() => {
+                setActiveTab('errors');
+              }} 
                 className={`px-6 py-3 font-medium text-sm ${activeTab === 'errors' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 <AlertTriangle className="inline-block w-4 h-4 mr-2" />
@@ -539,10 +520,9 @@ export default function DiagnosticsPage() {
               >
                 <Cpu className="inline-block w-4 h-4 mr-2" />
                 Performance
-              </button>              <button 
+              </button>                            <button 
                 onClick={() => {
                   setActiveTab('network');
-                  setIsLoading(false); // Reset loading state when switching to network tab
                 }}
                 className={`px-6 py-3 font-medium text-sm ${activeTab === 'network' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
@@ -634,7 +614,7 @@ export default function DiagnosticsPage() {
           <>
             {/* Error Categories */}
             <div className="mb-6 overflow-x-auto">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
                 <div className="flex space-x-2 overflow-x-auto pb-2">
                   <button
                     className={`px-4 py-2 rounded-full ${
@@ -646,7 +626,9 @@ export default function DiagnosticsPage() {
                   >
                     All Issues
                     {getCategoryCount('all') > 0 && (
-                      <span className="ml-2 bg-white bg-opacity-30 text-white text-xs px-2 py-0.5 rounded-full">
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                        activeCategory === 'all' ? 'bg-white/30 text-white' : 'bg-blue-200 text-blue-800'
+                      }`}>
                         {getCategoryCount('all')}
                       </span>
                     )}
@@ -664,7 +646,9 @@ export default function DiagnosticsPage() {
                     >
                       {category.charAt(0).toUpperCase() + category.slice(1)}
                       {getCategoryCount(category as ErrorCategory) > 0 && (                
-                        <span className="ml-2 bg-white bg-opacity-30 text-xs px-2 py-0.5 rounded-full">
+                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                          activeCategory === category ? 'bg-white/30 text-white' : 'bg-blue-200 text-blue-800'
+                        }`}>
                           {getCategoryCount(category as ErrorCategory)}
                         </span>
                       )}
@@ -673,11 +657,11 @@ export default function DiagnosticsPage() {
                 </div>
                 
                 {/* Search bar */}
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <input
                     type="text"
                     placeholder="Search errors..."
-                    className="pl-10 block w-full rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="pl-10 block w-full sm:min-w-64 rounded-md border border-gray-300 shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                   />
@@ -971,11 +955,11 @@ export default function DiagnosticsPage() {
         </div>
         
         <div className="mt-8 text-center text-gray-500 text-sm">
-          <p>Last updated: {new Date().toLocaleString()}</p>
+          <p>Last updated: {new Date(Math.max(...statuses.map(status => status.lastChecked.getTime()))).toLocaleString()}</p>
           <p className="mt-2">
-            <a href="/" className="text-blue-600 hover:text-blue-800">
+            <Link to="/admin" className="text-blue-600 hover:text-blue-800">
               Return to Dashboard
-            </a>
+            </Link>
           </p>
         </div>
       </div>

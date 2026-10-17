@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Download, FileDown, FilePlus, Trash2 } from 'lucide-react';
+import { Zap, Download, FilePlus, Trash2 } from 'lucide-react';
 
 interface TestButtonProps {
   label: string;

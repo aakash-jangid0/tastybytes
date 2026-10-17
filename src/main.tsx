@@ -7,17 +7,6 @@ import diagnosticService from './utils/diagnosticService.js';
 // Start capturing errors
 diagnosticService.startCapturing();
 
-// Global error handler
-window.onerror = function(message, source, lineno, colno, error) {
-  console.error('Global error caught:', {message, source, lineno, colno, error});
-  return false; // Let default error handling continue
-};
-
-// Catch unhandled promise rejections
-window.addEventListener('unhandledrejection', event => {
-  console.error('Unhandled promise rejection:', event.reason);
-});
-
 // Create root once
 const root = createRoot(document.getElementById('root')!);
 
@@ -30,6 +19,7 @@ try {
   );
 } catch (error) {
   console.error('Error rendering application:', error);
+  const message = error instanceof Error ? error.message : String(error);
   
   // Fallback UI for critical errors
   root.render(
@@ -37,7 +27,7 @@ try {
       <h1>Something went wrong</h1>
       <p>The application failed to load properly. Please try refreshing the page.</p>
       <pre style={{ textAlign: 'left', backgroundColor: '#f8f8f8', padding: '15px', borderRadius: '5px' }}>
-        Error: {error.message}
+        Error: {message}
       </pre>
     </div>
   );

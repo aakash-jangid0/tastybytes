@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      toast.success('OTP sent to your phone!');
+      toast.success('OTP request accepted. Check your messages; wait 60 seconds before requesting another code.');
     } catch (error: any) {
       toast.error(error.message || 'Failed to send OTP');
       throw error;

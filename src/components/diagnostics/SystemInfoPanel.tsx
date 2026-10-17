@@ -2,10 +2,23 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Activity, Cpu, ArrowRight, Smile, Search } from 'lucide-react';
 
-interface SystemInfoProps {
-  environmentInfo: any;
-  resourceUsage: any;
+interface MemoryUsage {
+  used?: number;
+  total?: number;
+  limit?: number;
 }
+
+export interface ResourceUsage {
+  memory?: MemoryUsage;
+}
+
+interface SystemInfoProps {
+  environmentInfo: Record<string, unknown>;
+  resourceUsage: ResourceUsage;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const SystemInfoPanel: React.FC<SystemInfoProps> = ({ 
   environmentInfo, 
@@ -13,34 +26,43 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   
-  const formatValue = (value: any): string => {
+  const formatValue = (value: unknown): string => {
     if (value === undefined || value === null) return 'Not available';
-    if (typeof value === 'object') return JSON.stringify(value);
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value) ?? String(value);
+      } catch {
+        return String(value);
+      }
+    }
     return String(value);
   };
   
-  const formatBytes = (bytes: number): string => {
-    if (!bytes) return '0 Bytes';
+  const formatBytes = (bytes?: number): string => {
+    if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return 'Not available';
+    if (bytes === 0) return '0 Bytes';
     
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
     return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${sizes[i]}`;
   };
   
   // Filter system info by search term
   const filteredInfo = React.useMemo(() => {
     if (!environmentInfo) return [];
-    
-    const flattenObject = (obj: any, prefix = ''): Array<[string, any]> => {
-      return Object.entries(obj).reduce((acc: Array<[string, any]>, [key, value]) => {
+
+    const visitedObjects = new WeakSet<object>();
+    visitedObjects.add(environmentInfo);
+    const flattenObject = (obj: Record<string, unknown>, prefix = ''): Array<[string, unknown]> => {
+      return Object.entries(obj).flatMap(([key, value]) => {
         const newKey = prefix ? `${prefix}.${key}` : key;
-        
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          return [...acc, ...flattenObject(value, newKey)];
+        if (isRecord(value) && !(value instanceof Date)) {
+          if (visitedObjects.has(value)) return [[newKey, '[Circular]']];
+          visitedObjects.add(value);
+          return flattenObject(value, newKey);
         }
-        
-        return [...acc, [newKey, value]];
-      }, []);
+        return [[newKey, value]];
+      });
     };
     
     const flattened = flattenObject(environmentInfo);
@@ -52,6 +74,11 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
              formatValue(value).toLowerCase().includes(searchTerm.toLowerCase());
     });
   }, [environmentInfo, searchTerm]);
+  const memory = resourceUsage.memory;
+  const memoryPercent = memory?.used !== undefined && memory.total !== undefined && memory.total > 0
+    ? Math.min(100, Math.max(0, Math.round((memory.used / memory.total) * 100)))
+    : undefined;
+  const browserFeatures = isRecord(environmentInfo.features) ? environmentInfo.features : undefined;
   
   return (
     <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -77,7 +104,7 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
       {/* System info sections */}
       <div className="space-y-6">
         {/* Resource usage section if available */}
-        {resourceUsage && resourceUsage.memory && (
+        {memory && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -91,17 +118,17 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-white p-3 rounded shadow-sm">
                 <div className="text-xs text-gray-500">Used Memory</div>
-                <div className="text-lg font-semibold">{formatBytes(resourceUsage.memory.used)}</div>
+                <div className="text-lg font-semibold">{formatBytes(memory.used)}</div>
               </div>
               
               <div className="bg-white p-3 rounded shadow-sm">
                 <div className="text-xs text-gray-500">Total Allocated</div>
-                <div className="text-lg font-semibold">{formatBytes(resourceUsage.memory.total)}</div>
+                <div className="text-lg font-semibold">{formatBytes(memory.total)}</div>
               </div>
               
               <div className="bg-white p-3 rounded shadow-sm">
                 <div className="text-xs text-gray-500">Heap Limit</div>
-                <div className="text-lg font-semibold">{formatBytes(resourceUsage.memory.limit)}</div>
+                <div className="text-lg font-semibold">{formatBytes(memory.limit)}</div>
               </div>
             </div>
             
@@ -110,11 +137,11 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-blue-500" 
-                  style={{ width: `${(resourceUsage.memory.used / resourceUsage.memory.total) * 100}%` }}
+                  style={{ width: `${memoryPercent ?? 0}%` }}
                 ></div>
               </div>
               <div className="mt-1 text-xs text-gray-500 text-right">
-                {Math.round((resourceUsage.memory.used / resourceUsage.memory.total) * 100)}% used
+                {memoryPercent === undefined ? 'Usage unavailable' : `${memoryPercent}% used`}
               </div>
             </div>
           </motion.div>
@@ -168,24 +195,27 @@ const SystemInfoPanel: React.FC<SystemInfoProps> = ({
       </div>
       
       {/* Browser feature support */}
-      {environmentInfo && environmentInfo.features && (
+      {browserFeatures && (
         <div className="mt-6 border-t pt-4">
           <h3 className="font-medium text-gray-800 mb-3">Browser Feature Support</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {Object.entries(environmentInfo.features).map(([feature, supported]) => (
-              <div 
-                key={feature}
-                className={`px-3 py-2 rounded-md text-sm flex items-center ${
-                  Boolean(supported) ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full mr-2 ${Boolean(supported) ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                {feature}
-                {Boolean(supported) && (
-                  <ArrowRight className="h-3 w-3 ml-1" />
-                )}
-              </div>
-            ))}
+            {Object.entries(browserFeatures).map(([feature, supported]) => {
+              const isSupported = supported === true;
+              return (
+                <div 
+                  key={feature}
+                  className={`px-3 py-2 rounded-md text-sm flex items-center ${
+                    isSupported ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full mr-2 ${isSupported ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                  {feature}
+                  {isSupported && (
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

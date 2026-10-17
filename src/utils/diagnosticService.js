@@ -36,12 +36,18 @@ class DiagnosticService {
     // Override console.error
     this.originalConsoleError = console.error;
     console.error = (...args) => {
+      const formatArgument = (arg) => {
+        if (typeof arg !== 'object' || arg === null) return String(arg);
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
+        }
+      };
       this.addError({
         source: 'console',
         type: 'error',
-        message: args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-        ).join(' '),
+        message: args.map(formatArgument).join(' '),
         timestamp: new Date(),
       });
       this.originalConsoleError.apply(console, args);
@@ -625,7 +631,7 @@ class DiagnosticService {
         if (key) {
           try {
             const value = localStorage.getItem(key);
-            items[key] = value;
+            items[key] = value ?? '';
           } catch (e) {
             items[key] = '[Error reading value]';
           }
@@ -645,7 +651,7 @@ class DiagnosticService {
         if (key) {
           try {
             const value = sessionStorage.getItem(key);
-            items[key] = value;
+            items[key] = value ?? '';
           } catch (e) {
             items[key] = '[Error reading value]';
           }
@@ -662,8 +668,10 @@ class DiagnosticService {
       return document.cookie.split(';')
         .map(cookie => cookie.trim())
         .reduce((cookies, cookie) => {
-          const [name, value] = cookie.split('=');
-          cookies[name] = value;
+          const separatorIndex = cookie.indexOf('=');
+          if (separatorIndex < 0) return cookies;
+          const name = cookie.slice(0, separatorIndex);
+          cookies[name] = cookie.slice(separatorIndex + 1);
           return cookies;
         }, {});
     } catch (e) {
@@ -735,13 +743,7 @@ class DiagnosticService {
         num.toUpperCase();
         break;
       case 'syntax':
-        // SyntaxError - can't be directly invoked, but we can use eval
-        try {
-          eval('const x = {;}'); // Intentional syntax error
-        } catch (e) {
-          throw e;
-        }
-        break;
+        throw new SyntaxError('Intentional test syntax error');
       case 'api':
         // API Error
         fetch('/non-existent-endpoint-for-testing')

@@ -1,12 +1,36 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Clock, Zap } from 'lucide-react';
 
-type MetricType = 'pageLoad' | 'api' | 'resource' | 'longtask';
+interface ApiMetric {
+  url?: string;
+  duration: number;
+  method?: string;
+  status?: number;
+}
+
+interface PageLoadMetrics {
+  total: number;
+  domContentLoaded: number;
+  loaded: number;
+  interactive: number;
+  domComplete: number;
+}
+
+interface ResourceMetric {
+  duration: number;
+}
+
+export interface PerformanceMetrics {
+  api?: ApiMetric[];
+  pageLoad?: PageLoadMetrics;
+  resource?: ResourceMetric[];
+  [key: string]: unknown;
+}
 
 interface PerformanceMetricProps {
-  performanceMetrics: any;
+  performanceMetrics: PerformanceMetrics;
 }
 
 const PerformanceMetricsPanel: React.FC<PerformanceMetricProps> = ({ performanceMetrics }) => {
@@ -16,8 +40,8 @@ const PerformanceMetricsPanel: React.FC<PerformanceMetricProps> = ({ performance
     }
 
     // Process the last 20 API calls for the chart
-    return performanceMetrics.api.slice(0, 20).map((call: any) => ({
-      name: call.url.split('/').pop() || call.url,
+    return performanceMetrics.api.slice(-20).map(call => ({
+      name: call.url?.split('/').pop() || call.url || 'Request',
       duration: Math.round(call.duration),
       url: call.url,
       method: call.method,
@@ -43,6 +67,10 @@ const PerformanceMetricsPanel: React.FC<PerformanceMetricProps> = ({ performance
 
   const apiData = formatApiData();
   const pageLoadData = formatPageLoadData();
+  const resourceMetrics = performanceMetrics.resource ?? [];
+  const averageResourceDuration = resourceMetrics.length > 0
+    ? Math.round(resourceMetrics.reduce((sum, resource) => sum + resource.duration, 0) / resourceMetrics.length)
+    : undefined;
 
   const getPageLoadReport = () => {
     if (!performanceMetrics.pageLoad) {
@@ -174,15 +202,9 @@ const PerformanceMetricsPanel: React.FC<PerformanceMetricProps> = ({ performance
       {/* Resource load times summary */}
       <div className="mt-4 text-sm text-gray-600">
         <p>
-          {performanceMetrics.resource && Array.isArray(performanceMetrics.resource) ?
-            `${performanceMetrics.resource.length} resources tracked with an average load time of 
-            ${Math.round(
-              performanceMetrics.resource.reduce(
-                (sum: number, res: any) => sum + res.duration, 0
-              ) / performanceMetrics.resource.length
-            )} ms` :
-            'No resource metrics available'
-          }
+          {averageResourceDuration === undefined
+            ? 'No resource metrics available'
+            : `${resourceMetrics.length} resources tracked with an average load time of ${averageResourceDuration} ms`}
         </p>
       </div>
     </div>

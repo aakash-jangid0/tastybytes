@@ -157,6 +157,7 @@ export default function App() {
                   <Route path="website" element={<WebsiteSettingsComprehensive />} />
                 </Route>
 
+                {/* Keep diagnostics standalone rather than inside the admin sidebar layout. */}
                 <Route path="/admin/diagnostics" element={
                   <ProtectedRoute requiredRole="admin">
                     <DiagnosticsPage />

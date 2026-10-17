@@ -1,8 +1,20 @@
 import React from 'react';
 import { Wifi, WifiOff, RefreshCw, Link2, Clock, AlertTriangle } from 'lucide-react';
 
+export type NetworkRequestStatus = number | 'pending' | 'error' | 'timeout';
+
+export interface NetworkRequest {
+  id?: string;
+  url?: string;
+  method?: string;
+  status: NetworkRequestStatus;
+  statusText?: string;
+  duration?: number;
+  timestamp?: Date | string;
+}
+
 interface NetworkRequestProps {
-  networkRequests: any[];
+  networkRequests: NetworkRequest[];
 }
 
 // Use React.memo to prevent unnecessary re-renders of the entire component
@@ -30,13 +42,16 @@ const NetworkPanel: React.FC<NetworkRequestProps> = React.memo(({ networkRequest
     let filterFn;
     switch (filter) {
       case 'error':
-        filterFn = (req: any) => req.status >= 400 || req.status === 'error';
+        filterFn = (req: NetworkRequest) =>
+          req.status === 'error' || req.status === 'timeout' ||
+          (typeof req.status === 'number' && req.status >= 400);
         break;
       case 'success':
-        filterFn = (req: any) => req.status >= 200 && req.status < 300;
+        filterFn = (req: NetworkRequest) =>
+          typeof req.status === 'number' && req.status >= 200 && req.status < 300;
         break;
       case 'pending':
-        filterFn = (req: any) => req.status === 'pending';
+        filterFn = (req: NetworkRequest) => req.status === 'pending';
         break;
       default:
         return limitedRequests;
@@ -47,11 +62,11 @@ const NetworkPanel: React.FC<NetworkRequestProps> = React.memo(({ networkRequest
   }, [limitedRequests, filter]);
 
   // Function to get row class based on status
-  const getRowClass = (request: any) => {
+  const getRowClass = (request: NetworkRequest) => {
     if (request.status === 'pending') return 'bg-yellow-50';
-    if (request.status === 'error') return 'bg-red-50';
-    if (request.status >= 400) return 'bg-red-50';
-    if (request.status >= 200 && request.status < 300) return 'bg-green-50';
+    if (request.status === 'error' || request.status === 'timeout') return 'bg-red-50';
+    if (typeof request.status === 'number' && request.status >= 400) return 'bg-red-50';
+    if (typeof request.status === 'number' && request.status >= 200 && request.status < 300) return 'bg-green-50';
     return 'bg-white';
   };
 
@@ -64,13 +79,13 @@ const NetworkPanel: React.FC<NetworkRequestProps> = React.memo(({ networkRequest
   };
 
   // Format the URL to be more readable
-  const formatUrl = (url: string) => {
+  const formatUrl = (url?: string) => {
     try {
       if (!url) return '—';
-      const urlObj = new URL(url);
+      const urlObj = new URL(url, window.location.href);
       // Just show pathname + querystring
       return urlObj.pathname + urlObj.search;
-    } catch (e) {
+    } catch {
       return url;
     }
   };
@@ -145,33 +160,39 @@ const NetworkPanel: React.FC<NetworkRequestProps> = React.memo(({ networkRequest
               </tr>            </thead>            <tbody className="bg-white divide-y divide-gray-200">
               {/* Optimize rendering by extracting a row component */}
               {paginatedRequests.map((request, index) => (
-                <tr key={`network-row-${index}-${currentPage}-${request.id || Math.random().toString(36).substring(2, 9)}`} className={getRowClass(request)}>
+                <tr key={request.id ?? `${request.url ?? 'request'}-${request.timestamp ?? index}`} className={getRowClass(request)}>
                   <td className="px-4 py-2 whitespace-nowrap">
                     {request.status === 'pending' ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                         <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
                         Pending
                       </span>
-                    ) : request.status === 'error' || request.status >= 400 ? (
+                    ) : request.status === 'error' || request.status === 'timeout' ||
+                      (typeof request.status === 'number' && request.status >= 400) ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
                         <AlertTriangle className="w-3 h-3 mr-1" />
-                        {request.status === 'error' ? 'Error' : request.status}
+                        {request.status === 'error' ? 'Error' :
+                          request.status === 'timeout' ? 'Timeout' : request.status}
                       </span>
-                    ) : (
+                    ) : typeof request.status === 'number' && request.status >= 200 && request.status < 300 ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                         <Wifi className="w-3 h-3 mr-1" />
+                        {request.status}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                         {request.status}
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {request.method ? request.method.toUpperCase() : 'N/A'}
+                    {request.method?.toUpperCase() ?? 'N/A'}
                   </td>
-                  <td className="px-4 py-2 text-sm text-gray-500 max-w-xs truncate" title={request.url}>
+                  <td className="px-4 py-2 text-sm text-gray-500 max-w-xs truncate" title={request.url ?? ''}>
                     {formatUrl(request.url)}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                    {formatDuration(request.duration)}
+                    {formatDuration(request.duration ?? 0)}
                   </td>
                 </tr>
               ))}

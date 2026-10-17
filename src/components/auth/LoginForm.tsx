@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Mail, Lock, Phone, ArrowLeft } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 type LoginMode = 'email' | 'phone' | 'otp';
 
@@ -15,8 +14,19 @@ function LoginForm() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const { signIn, signInWithGoogle, signInWithPhone, verifyOtp } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (resendCountdown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setResendCountdown(current => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendCountdown]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,33 +49,33 @@ function LoginForm() {
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone || phone.length < 10) {
-      toast.error('Please enter a valid phone number');
+  const requestPhoneOtp = async () => {
+    if (!/^\d{10}$/.test(phone)) {
+      toast.error('Enter a valid 10-digit Indian phone number');
       return;
     }
+
     setIsLoading(true);
     try {
-      // Check if this phone belongs to an existing user (for welcome-back UX)
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('phone', phone)
-        .single();
-
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      await signInWithPhone(formattedPhone);
+      await signInWithPhone(`+91${phone}`);
       setLoginMode('otp');
-
-      if (existingProfile?.name) {
-        toast.success(`Welcome back, ${existingProfile.name}! OTP sent to your phone.`);
-      }
+      setResendCountdown(60);
     } catch (error) {
       console.error('Phone login error:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await requestPhoneOtp();
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCountdown > 0 || isLoading) return;
+    setOtp('');
+    await requestPhoneOtp();
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -76,8 +86,7 @@ function LoginForm() {
     }
     setIsLoading(true);
     try {
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-      await verifyOtp(formattedPhone, otp);
+      await verifyOtp(`+91${phone}`, otp);
       navigate('/');
     } catch (error) {
       console.error('OTP verification error:', error);
@@ -252,14 +261,11 @@ function LoginForm() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setOtp('');
-              handleSendOtp({ preventDefault: () => {} } as React.FormEvent);
-            }}
-            disabled={isLoading}
+            onClick={handleResendOtp}
+            disabled={isLoading || resendCountdown > 0}
             className="w-full text-sm text-orange-500 hover:text-orange-600 font-medium disabled:opacity-50"
           >
-            Resend OTP
+            {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : 'Resend OTP'}
           </button>
         </form>
       )}

@@ -21,20 +21,20 @@ const StorageInspector: React.FC<StorageInspectorProps> = ({
   
   const renderStorageItems = (items: StorageData) => {
     const entries = Object.entries(items);
-    
-    if (entries.length === 0) {
-      return (
-        <div className="text-center py-4 text-gray-500">
-          No items found
-        </div>
-      );
-    }
 
     if (items.error) {
       return (
         <div className="p-3 bg-red-50 text-red-600 rounded flex items-center">
           <AlertTriangle className="w-4 h-4 mr-2" />
           Error accessing storage: {items.error}
+        </div>
+      );
+    }
+
+    if (entries.length === 0) {
+      return (
+        <div className="text-center py-4 text-gray-500">
+          No items found
         </div>
       );
     }
@@ -81,7 +81,7 @@ const StorageInspector: React.FC<StorageInspectorProps> = ({
         );
       }
       return str;
-    } catch (e) {
+    } catch {
       return str;
     }
   };

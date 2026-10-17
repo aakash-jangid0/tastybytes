@@ -59,35 +59,7 @@ const ErrorAnalyticsPanel: React.FC<ErrorAnalyticsProps> = ({ errors }) => {  //
       value: sources[source],
     }));
   }, [limitedErrors]);
-    // For time-based analysis
-  const errorsByHour = React.useMemo(() => {
-    if (!limitedErrors || limitedErrors.length === 0) {
-      return {};
-    }
-    
-    const last24Hours = [...Array(24)].map((_, i) => {
-      const d = new Date();
-      d.setHours(d.getHours() - i);
-      return d.getHours();
-    }).reverse();
-    
-    const counts: Record<number, number> = {};
-    last24Hours.forEach(hour => { counts[hour] = 0 });
-    
-    limitedErrors.forEach(error => {
-      if (error.timestamp) {
-        const errorTime = new Date(error.timestamp);
-        const hoursSince = Math.floor((Date.now() - errorTime.getTime()) / (1000 * 60 * 60));
-        
-        if (hoursSince < 24) {
-          const hour = errorTime.getHours();
-          counts[hour] = (counts[hour] || 0) + 1;
-        }
-      }
-    });
-    
-    return counts;  }, [limitedErrors]);
-    // Most common error patterns
+  // Most common error patterns
   const commonErrors = React.useMemo(() => {
     if (!limitedErrors || limitedErrors.length === 0) {
       return [];
@@ -164,7 +136,7 @@ const ErrorAnalyticsPanel: React.FC<ErrorAnalyticsProps> = ({ errors }) => {  //
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {errorsByCategory.map((entry, index) => (
+                    {errorsByCategory.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -197,7 +169,7 @@ const ErrorAnalyticsPanel: React.FC<ErrorAnalyticsProps> = ({ errors }) => {  //
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {errorsBySource.map((entry, index) => (
+                    {errorsBySource.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                     ))}
                   </Pie>
