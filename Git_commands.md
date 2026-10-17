@@ -7,9 +7,6 @@ git config --global user.name "Aakash Jangid"
 git config --global user.email "aakashjangid0@gmail.com"
 
 git remote set-url origin https://github.com/aakash-jangid0/Netlify.git
-git remote set-url origin https://github.com/aakash-jangid0/tastybytes_clean.git
-git remote set-url origin https://github.com/aakash-jangid0/tastybytes.git
-
 
 git add .
 git commit -m "Initial commit"

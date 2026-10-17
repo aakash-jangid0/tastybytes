@@ -161,7 +161,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      localStorage.removeItem('tastybytes_cart');
       toast.success('Logged out successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign out');
