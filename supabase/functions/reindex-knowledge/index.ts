@@ -25,6 +25,24 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     });
 }
 
+function hasServiceRoleAuthorization(authorization: string | null): boolean {
+    if (!authorization?.startsWith("Bearer ")) return false;
+
+    const tokenPayload = authorization.slice("Bearer ".length).split(".")[1];
+    if (!tokenPayload) return false;
+
+    try {
+        const normalizedPayload = tokenPayload
+            .replace(/-/g, "+")
+            .replace(/_/g, "/")
+            .padEnd(Math.ceil(tokenPayload.length / 4) * 4, "=");
+        const claims = JSON.parse(atob(normalizedPayload));
+        return claims.role === "service_role";
+    } catch {
+        return false;
+    }
+}
+
 async function embedBatch(texts: string[]): Promise<number[][]> {
     const response = await fetch(OPENAI_EMBED_URL, {
         method: "POST",
@@ -75,7 +93,7 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Reindexing is not configured" }, 500);
     }
 
-    if (req.headers.get("Authorization") !== "Bearer ".concat(SUPABASE_SERVICE_ROLE_KEY)) {
+    if (!hasServiceRoleAuthorization(req.headers.get("Authorization"))) {
         return jsonResponse({ error: "Unauthorized" }, 401);
     }
 

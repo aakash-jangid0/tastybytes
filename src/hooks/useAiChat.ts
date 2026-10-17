@@ -48,6 +48,10 @@ export function useAiChat(chatId: string | null, customerId: string, orderId: st
       setIsAiLoading(true);
       setAiError(null);
 
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) throw new Error('Please sign in to ask about your order.');
+
       const url = `${SUPABASE_URL}/functions/v1/ai-chat`;
 
       const res = await fetch(url, {
@@ -55,7 +59,7 @@ export function useAiChat(chatId: string | null, customerId: string, orderId: st
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           message: message.trim(),
@@ -113,6 +117,10 @@ export function useAiChat(chatId: string | null, customerId: string, orderId: st
       let friendlyMessage: string;
       if (raw.includes('429') || raw.includes('quota') || raw.includes('RESOURCE_EXHAUSTED') || raw.includes('rate')) {
         friendlyMessage = 'Our AI assistant is temporarily busy due to high demand. Please try again in a few seconds, or talk to a support agent.';
+      } else if (raw.includes('sign in')) {
+        friendlyMessage = raw;
+      } else if (raw.includes("couldn't find this order")) {
+        friendlyMessage = "We couldn't find this order for your account. Please check the order or contact support.";
       } else if (raw.includes('403') || raw.includes('PERMISSION_DENIED') || raw.includes('leaked')) {
         friendlyMessage = 'AI service is temporarily unavailable. Please try again later or talk to a support agent.';
       } else if (raw.includes('Missing environment')) {

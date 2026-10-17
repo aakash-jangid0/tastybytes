@@ -17,7 +17,8 @@ export const generateAndProcessInvoice = async (
   customerName: string,
   customerPhone?: string,
   tableNumber?: string,
-  paymentMethod?: string
+  paymentMethod?: string,
+  notifyOnError = true
 ) => {
   try {
     // Create invoice data using consistent format
@@ -64,7 +65,9 @@ export const generateAndProcessInvoice = async (
     };
   } catch (err: any) {
     console.error('Error processing invoice:', err);
-    toast.error(`Failed to process invoice: ${err.message || 'Unknown error'}`);
+    if (notifyOnError) {
+      toast.error(`Failed to process invoice: ${err.message || 'Unknown error'}`);
+    }
     return null;
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Minus, Plus, Trash2, ArrowLeft, ShoppingBag, X, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import NetworkErrorAlert from '../components/ui/NetworkErrorAlert';
 import { generateAndProcessInvoice } from '../utils/orderInvoiceUtils';
 import { supabase } from '../lib/supabase';
+import { PaymentStatus } from '../types/payment';
 
 // Interface for coupon data
 interface CouponData {
@@ -53,13 +54,14 @@ const incrementCouponUsage = async (couponId: number): Promise<void> => {
 };
 
 function Cart() {
-  const { cartItems, updateQuantity, removeFromCart, clearCartSilently } = useCart();
+  const { cartItems, maxItemQuantity, updateQuantity, removeFromCart, clearCartSilently } = useCart();
   const { user } = useAuth();
   const { createOrder } = useOrders();
   const navigate = useNavigate();
   const [tableNumber, setTableNumber] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [paymentConfirmationPending, setPaymentConfirmationPending] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('dine-in');
   const [paymentMethod] = useState<'cash' | 'card' | 'upi'>('cash');
@@ -118,12 +120,15 @@ function Cart() {
     }
     
     // Instead of creating the order immediately, just show the payment modal
+    setCompletedPaymentData(undefined);
+    setPaymentConfirmationPending(false);
+    setCreatedOrderId(undefined);
     setShowPaymentModal(true);
   };
 
   const handlePaymentComplete = async (
     receivedPaymentMethod?: string, 
-    paymentStatus?: string, 
+    paymentStatus?: PaymentStatus,
     paymentData?: Record<string, unknown>
   ) => {
     console.log('Payment complete callback received:', { 
@@ -275,7 +280,8 @@ function Cart() {
           user?.user_metadata?.name || user?.email || 'Guest', // customer name
           undefined,           // customer phone (not captured in this flow)
           orderType === 'dine-in' ? tableNumber : 'Takeaway', // table number
-          finalPaymentMethod   // payment method
+          finalPaymentMethod,  // payment method
+          false                // invoice failures are logged; checkout reports the order outcome once
         );
         
         // Invoice has been generated and saved to database, but we don't auto-print it
@@ -286,7 +292,6 @@ function Cart() {
         }
       } catch (invoiceError) {
         console.error('Error processing invoice:', invoiceError);
-        toast.error('Failed to process invoice, but order was placed.');
       }
       
       // Store payment completion data for success modal
@@ -311,19 +316,21 @@ function Cart() {
       // Close payment modal and show success modal
       setShowPaymentModal(false);
       setShowSuccessModal(true);
-      
-      // Show a toast notification as well
-      // If there's a payment message provided from the payment modal, use it
-      // Otherwise use the default success message
-      const successMessage = (paymentData?.paymentMessage as string) || 
-        (finalPaymentMethod === 'razorpay' ? 'Payment successful! Order placed.' : 'Order placed successfully!');
-        
-      toast.success(successMessage, {
-        duration: 5000,
-        icon: '✅',
-      });
     } catch (error: unknown) {
       console.error('Error placing order:', error);
+
+      if (receivedPaymentMethod === 'razorpay' && paymentData?.success) {
+        setCompletedPaymentData({
+          method: receivedPaymentMethod,
+          amount: total,
+          orderId: finalOrderId
+        });
+        setPaymentConfirmationPending(true);
+        clearCartSilently();
+        setShowPaymentModal(false);
+        setShowSuccessModal(true);
+        return;
+      }
       
       // For cash payments or if skipErrorHandling flag is set, we don't want to show the error 
       // Since cash orders are more forgiving (payment happens later at counter)
@@ -342,12 +349,6 @@ function Cart() {
         // Close payment modal and show success modal
         setShowPaymentModal(false);
         setShowSuccessModal(true);
-        
-        // Show success toast for cash payment
-        toast.success((paymentData?.paymentMessage as string) || `${receivedPaymentMethod?.toUpperCase() || 'CASH'} payment selected. Pay at counter.`, {
-          duration: 5000,
-          icon: '✅',
-        });
         
         return; // Exit early to avoid showing error for cash payments
       }
@@ -381,10 +382,7 @@ function Cart() {
       });
     } finally {
       setIsProcessing(false);
-      // Only close payment modal on error, success is handled above
-      if (!completedPaymentData) {
-        setShowPaymentModal(false);
-      }
+      setShowPaymentModal(false);
     }
   };
 
@@ -441,7 +439,12 @@ function Cart() {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                        className="p-1 hover:bg-gray-100 rounded-full"
+                        disabled={item.quantity >= maxItemQuantity}
+                        aria-label={`Add one ${item.name}`}
+                        title={item.quantity >= maxItemQuantity
+                          ? `Maximum ${maxItemQuantity} per dish`
+                          : `Add one ${item.name}`}
+                        className="p-1 hover:bg-gray-100 rounded-full disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Plus className="w-4 h-4" />
                       </motion.button>
@@ -706,7 +709,6 @@ function Cart() {
               
               if (!order || !order.id) {
                 console.error('Order creation failed - no order ID returned');
-                toast.error('Failed to create order. Please try again.');
                 return null;
               }
               
@@ -715,7 +717,6 @@ function Cart() {
               return order.id;
             } catch (error) {
               console.error('Error creating order:', error);
-              toast.error('Failed to create order. Please try again.');
               return null;
             } finally {
               setIsProcessing(false);
@@ -736,6 +737,7 @@ function Cart() {
             orderId={completedPaymentData.orderId}
             paymentMethod={completedPaymentData.method}
             amount={completedPaymentData.amount}
+            confirmationPending={paymentConfirmationPending}
           />
         )}
       </div>

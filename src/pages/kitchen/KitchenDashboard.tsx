@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Clock, AlertCircle, CheckCircle2, Timer, ChefHat, Search,
@@ -158,19 +158,24 @@ function KitchenDashboard() {
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
+      const updatedAt = new Date().toISOString();
       const updateData = { 
         status: newStatus,
+        updated_at: updatedAt,
         ...(newStatus === 'preparing' ? {
           estimated_completion_time: new Date(Date.now() + 20 * 60000).toISOString()
         } : {})
       };
 
-      const { error } = await supabase
+      const { data: updatedOrder, error } = await supabase
         .from('orders')
         .update(updateData)
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .select('id, status')
+        .single();
 
       if (error) throw error;
+      if (!updatedOrder) throw new Error('Order was not found or could not be updated.');
       
       // Immediately update the local state for a responsive UI
       setOrders(prev => 
@@ -178,7 +183,8 @@ function KitchenDashboard() {
           order.id === orderId 
             ? { 
                 ...order, 
-                status: newStatus, 
+                status: updatedOrder.status, 
+                updated_at: updatedAt,
                 ...(newStatus === 'preparing' ? {
                   estimated_completion_time: new Date(Date.now() + 20 * 60000).toISOString()
                 } : {})

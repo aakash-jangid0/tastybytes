@@ -9,6 +9,8 @@ export interface CartItem {
   image: string;
 }
 
+const MAX_CUSTOMER_ITEM_QUANTITY = 10;
+
 export interface CartState {
   cartItems: CartItem[];
   lastAction?: {
@@ -19,6 +21,7 @@ export interface CartState {
 
 export interface CartContextType {
   cartItems: CartItem[];
+  maxItemQuantity: number;
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -47,6 +50,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'ADD_TO_CART': {
       const existingItem = state.cartItems.find(item => item.id === action.payload.id);
       if (existingItem) {
+        if (existingItem.quantity >= MAX_CUSTOMER_ITEM_QUANTITY) {
+          return {
+            ...state,
+            lastAction: { type: 'LIMIT_REACHED', itemName: action.payload.name }
+          };
+        }
         return {
           cartItems: state.cartItems.map(item =>
             item.id === action.payload.id
@@ -67,6 +76,13 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         lastAction: { type: 'REMOVE' }
       };
     case 'UPDATE_QUANTITY':
+      if (action.payload.quantity > MAX_CUSTOMER_ITEM_QUANTITY) {
+        const item = state.cartItems.find(item => item.id === action.payload.id);
+        return {
+          ...state,
+          lastAction: { type: 'LIMIT_REACHED', itemName: item?.name }
+        };
+      }
       if (action.payload.quantity === 0) {
         return {
           cartItems: state.cartItems.filter(item => item.id !== action.payload.id),
@@ -96,8 +112,18 @@ const CART_STORAGE_KEY = 'tastybytes_cart';
 function loadCartFromStorage(): CartState {
   try {
     const stored = localStorage.getItem(CART_STORAGE_KEY);
-    if (stored) return { cartItems: JSON.parse(stored) };
-  } catch {}
+    if (stored) {
+      const cartItems = JSON.parse(stored) as CartItem[];
+      return {
+        cartItems: cartItems.map(item => ({
+          ...item,
+          quantity: Math.min(item.quantity, MAX_CUSTOMER_ITEM_QUANTITY)
+        }))
+      };
+    }
+  } catch (error) {
+    console.error('Failed to load saved cart:', error);
+  }
   return { cartItems: [] };
 }
 
@@ -108,7 +134,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cartItems));
-    } catch {}
+    } catch (error) {
+      console.error('Failed to save cart:', error);
+    }
   }, [state.cartItems]);
 
   useEffect(() => {
@@ -125,6 +153,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           break;
         case 'CLEAR':
           toastUtils.quickSuccess('Cart cleared');
+          break;
+        case 'LIMIT_REACHED':
+          toastUtils.quickInfo(`You can add up to ${MAX_CUSTOMER_ITEM_QUANTITY} of each dish.`);
           break;
       }
     }
@@ -155,6 +186,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider
       value={{
         cartItems: state.cartItems,
+        maxItemQuantity: MAX_CUSTOMER_ITEM_QUANTITY,
         addToCart,
         removeFromCart,
         updateQuantity,

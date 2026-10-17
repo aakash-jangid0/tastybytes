@@ -64,7 +64,6 @@ export function useOrders() {
     table: 'orders',
     onInsert: (newOrder) => {
       setOrders(prev => [newOrder, ...prev]);
-      toast.success('New order received!');
     },
     onUpdate: (updatedOrder) => {
       setOrders(prev => 
@@ -181,7 +180,6 @@ export function useOrders() {
       // Use profile data if available, fallback to provided data
       const customerNameFromProfile = profileData?.name || null;
       
-      const customerEmailFromProfile = profileData?.email;
       const customerPhoneFromProfile = profileData?.phone;
 
       // Validate phone number format if provided
@@ -221,40 +219,38 @@ export function useOrders() {
         payment_method: paymentMethod === 'pending' ? 'cash' : paymentMethod // Default to cash for pending payments
       };
 
-      // First, try creating the order with user_id and customer_id
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .insert([{
-            ...orderData,
-            user_id: user.id,
-            customer_id: customerId // Use the customer ID from the customers table
-          }])
-          .select()
-          .single();
+      // First, try creating the order with user_id and customer_id.
+      const { data: orderWithUser, error: orderWithUserError } = await supabase
+        .from('orders')
+        .insert([{
+          ...orderData,
+          user_id: user.id,
+          customer_id: customerId
+        }])
+        .select()
+        .single();
 
-        if (!error) {
-          // Successfully created order with user_id
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(
-              items.map(item => ({
-                order_id: data.id,
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                notes: item.notes
-              }))
-            );
+      if (!orderWithUserError) {
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(
+            items.map(item => ({
+              order_id: orderWithUser.id,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              notes: item.notes
+            }))
+          );
 
-          if (itemsError) throw itemsError;
-          toast.success('Order placed successfully!');
-          return data;
-        }
-      } catch {
-        // If the user_id column doesn't exist, try without it
-        console.log('Falling back to order creation without user_id');
+        if (itemsError) throw itemsError;
+        return orderWithUser;
       }
+
+      if (orderWithUserError.code !== '42703' || !orderWithUserError.message.includes('user_id')) {
+        throw orderWithUserError;
+      }
+      console.log('Falling back to order creation without user_id');
 
       // Fallback: Insert without user_id if the previous attempt failed
       const { data: order, error: orderError } = await supabase
@@ -287,8 +283,7 @@ export function useOrders() {
       // The success message will be shown in the payment completion handler
       return order;
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Error creating order';
-      toast.error(errorMessage);
+      console.error('Error creating order:', error);
       throw error;
     }
   };

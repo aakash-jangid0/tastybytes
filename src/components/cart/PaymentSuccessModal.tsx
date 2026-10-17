@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -9,6 +8,7 @@ interface PaymentSuccessModalProps {
   orderId: string;
   paymentMethod: string;
   amount: number;
+  confirmationPending?: boolean;
 }
 
 export default function PaymentSuccessModal({
@@ -16,8 +16,11 @@ export default function PaymentSuccessModal({
   onClose,
   orderId,
   paymentMethod,
-  amount
+  amount,
+  confirmationPending = false
 }: PaymentSuccessModalProps) {
+  const isCashPayment = paymentMethod === 'cash';
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -34,7 +37,9 @@ export default function PaymentSuccessModal({
             className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl"
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Payment Successful</h2>
+              <h2 className="text-xl font-semibold">
+                {confirmationPending ? 'Payment Received' : isCashPayment ? 'Order Placed' : 'Payment Successful'}
+              </h2>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-full"
@@ -48,7 +53,13 @@ export default function PaymentSuccessModal({
                 <CheckCircle className="w-16 h-16 text-green-500" />
               </div>
               <h3 className="text-xl font-bold mb-1">Thank You!</h3>
-              <p className="text-gray-600 mb-4 text-center">Your payment was successful and your order has been placed.</p>
+              <p className="text-gray-600 mb-4 text-center">
+                {confirmationPending
+                  ? 'Your payment was successful. We are confirming your order; use order tracking for updates.'
+                  : isCashPayment
+                    ? 'Your order has been placed. Please pay at the counter.'
+                    : 'Your payment was successful and your order has been placed.'}
+              </p>
               
               <div className="w-full bg-gray-50 p-4 rounded-lg mb-4">
                 <div className="flex justify-between text-sm mb-2">
@@ -60,7 +71,9 @@ export default function PaymentSuccessModal({
                   <span className="font-medium capitalize">{paymentMethod}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Amount Paid:</span>
+                  <span className="text-gray-600">
+                    {isCashPayment ? 'Amount Due:' : confirmationPending ? 'Amount:' : 'Amount Paid:'}
+                  </span>
                   <span className="font-medium">₹{amount.toFixed(2)}</span>
                 </div>
               </div>

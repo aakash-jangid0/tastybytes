@@ -1,4 +1,3 @@
-import { toast } from 'react-hot-toast';
 import { supabase } from './supabase';
 import { PaymentData, PaymentMethod, PaymentStatus, RazorpayResponse } from '../types/payment';
 
@@ -8,26 +7,20 @@ export const verifyRazorpayPayment = async (
   paymentData: RazorpayResponse,
   orderId: string,
 ): Promise<{ verified: boolean; orderId: string; paymentId: string }> => {
-  try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-payment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        razorpay_order_id: paymentData.razorpay_order_id,
-        razorpay_payment_id: paymentData.razorpay_payment_id,
-        razorpay_signature: paymentData.razorpay_signature,
-        orderId,
-      }),
-    });
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-payment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      razorpay_order_id: paymentData.razorpay_order_id,
+      razorpay_payment_id: paymentData.razorpay_payment_id,
+      razorpay_signature: paymentData.razorpay_signature,
+      orderId,
+    }),
+  });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Payment verification failed');
-    return data;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Payment verification failed. Please contact support.';
-    toast.error(message);
-    throw error;
-  }
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Payment verification failed');
+  return data;
 };
 
 export const savePaymentDetails = async (
@@ -38,27 +31,21 @@ export const savePaymentDetails = async (
   transactionId?: string,
   transactionData?: Record<string, unknown>,
 ): Promise<{ success: boolean; data: PaymentData }> => {
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .insert({
-        order_id: orderId,
-        amount,
-        method,
-        status,
-        transaction_id: transactionId,
-        transaction_data: transactionData,
-      })
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('payments')
+    .insert({
+      order_id: orderId,
+      amount,
+      method,
+      status,
+      transaction_id: transactionId,
+      transaction_data: transactionData,
+    })
+    .select()
+    .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to record payment. Please contact support.';
-    toast.error(message);
-    throw error;
-  }
+  if (error) throw error;
+  return { success: true, data };
 };
 
 export const processRazorpayPayment = async (
@@ -91,14 +78,18 @@ export const processRazorpayPayment = async (
     const verificationResult = await verifyRazorpayPayment(response, orderId);
 
     if (verificationResult.verified) {
-      await savePaymentDetails(
-        orderId,
-        amount,
-        'razorpay',
-        'completed',
-        response.razorpay_payment_id,
-        response as unknown as Record<string, unknown>,
-      );
+      try {
+        await savePaymentDetails(
+          orderId,
+          amount,
+          'razorpay',
+          'completed',
+          response.razorpay_payment_id,
+          response as unknown as Record<string, unknown>,
+        );
+      } catch (error) {
+        console.error('Verified payment could not be recorded in the payments table:', error);
+      }
     } else {
       throw new Error('Payment verification failed');
     }
@@ -106,9 +97,10 @@ export const processRazorpayPayment = async (
     return {
       success: verificationResult.verified,
       paymentId: response.razorpay_payment_id,
-      orderId: response.razorpay_order_id,
+      orderId,
     };
   } catch (error) {
+    console.error('Razorpay payment processing failed:', error);
     throw error;
   }
 };

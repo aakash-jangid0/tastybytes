@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 
@@ -17,7 +17,9 @@ export function useRealtimeSync<T extends { id: string | number }>({
   onDelete, 
   filter 
 }: RealtimeSyncProps<T>) {
-  
+  const callbacksRef = useRef({ onInsert, onUpdate, onDelete });
+  callbacksRef.current = { onInsert, onUpdate, onDelete };
+
   useEffect(() => {
     const channel = supabase
       .channel(`${table}_changes`)
@@ -27,13 +29,14 @@ export function useRealtimeSync<T extends { id: string | number }>({
           event: '*',
           schema: 'public',
           table: table,
-          filter: filter
+          ...(filter ? { filter } : {})
         },
         async (payload) => {
           try {
+            const { onInsert: handleInsert, onUpdate: handleUpdate, onDelete: handleDelete } = callbacksRef.current;
             // For UPDATE and INSERT, fetch the complete record with relationships
             if ((payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') && 
-                (onUpdate || onInsert)) {
+                (handleUpdate || handleInsert)) {
               
               const { data, error } = await supabase
                 .from(table)
@@ -42,18 +45,18 @@ export function useRealtimeSync<T extends { id: string | number }>({
                 .single<T>();
               
               if (!error) {
-                if (payload.eventType === 'INSERT' && onInsert) {
-                  onInsert(data);
-                } else if (payload.eventType === 'UPDATE' && onUpdate) {
-                  onUpdate(data);
+                if (payload.eventType === 'INSERT' && handleInsert) {
+                  handleInsert(data);
+                } else if (payload.eventType === 'UPDATE' && handleUpdate) {
+                  handleUpdate(data);
                 }
               } else {
                 console.error(`Error fetching ${table} data:`, error);
               }
             } 
             // For DELETE, just pass the payload data
-            else if (payload.eventType === 'DELETE' && onDelete) {
-              onDelete(payload.old as Partial<T>);
+            else if (payload.eventType === 'DELETE' && handleDelete) {
+              handleDelete(payload.old as Partial<T>);
             }
           } catch (error) {
             console.error(`Error in realtime sync for ${table}:`, error);
@@ -63,14 +66,18 @@ export function useRealtimeSync<T extends { id: string | number }>({
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to ${table} changes`);
+          toast.dismiss(`${table}-realtime-error`);
         }
-        if (status === 'CHANNEL_ERROR') {
-          toast.error(`Failed to subscribe to ${table} changes`);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`Realtime subscription for ${table} failed:`, status);
+          toast.error(`Failed to subscribe to ${table} changes`, {
+            id: `${table}-realtime-error`
+          });
         }
       });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [table, onInsert, onUpdate, onDelete, filter]);
+  }, [table, filter]);
 }

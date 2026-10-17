@@ -134,82 +134,77 @@ export const makeDismissible = (toastFn: typeof toast.success | typeof toast.err
   };
 };
 
-// Simplified global click-to-dismiss setup
 export const setupGlobalToastDismiss = () => {
-  // Add global click listener for all toasts using event delegation
-  document.addEventListener('click', (event) => {
-    const target = event.target as Element;
-    const toastElement = target.closest('[data-hot-toast]') as HTMLElement;
-    
-    if (toastElement) {
-      // Get toast ID directly from the data-hot-toast attribute
-      const toastId = toastElement.getAttribute('data-hot-toast');
-      if (toastId) {
-        console.log('Dismissing toast with ID:', toastId); // Debug log
-        toast.dismiss(toastId);
-      } else {
-        console.log('No toast ID found, dismissing all toasts'); // Debug log
-        toast.dismiss();
-      }
-      
-      // Prevent event bubbling
+  let swipeStart: { id: string; x: number; y: number; pointerId: number } | undefined;
+
+  const dismissToast = (id: string) => toast.dismiss(id);
+
+  const handleClick = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const toastElement = target.closest<HTMLElement>('[data-hot-toast]');
+    const toastId = toastElement?.dataset.hotToast;
+    if (toastId) {
+      dismissToast(toastId);
       event.stopPropagation();
       event.preventDefault();
     }
-  }, true); // Use capture phase for better event handling
+  };
 
-  // Add keyboard support (ESC to dismiss all)
-  document.addEventListener('keydown', (event) => {
+  const handlePointerDown = (event: PointerEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const toastElement = target.closest<HTMLElement>('[data-hot-toast]');
+    const toastId = toastElement?.dataset.hotToast;
+    if (toastId) {
+      swipeStart = {
+        id: toastId,
+        x: event.clientX,
+        y: event.clientY,
+        pointerId: event.pointerId,
+      };
+    }
+  };
+
+  const handlePointerUp = (event: PointerEvent) => {
+    if (!swipeStart || swipeStart.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - swipeStart.x;
+    const deltaY = event.clientY - swipeStart.y;
+    const isSwipe = Math.abs(deltaX) >= 50 || deltaY <= -50;
+    if (isSwipe) {
+      dismissToast(swipeStart.id);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    swipeStart = undefined;
+  };
+
+  const handlePointerCancel = () => {
+    swipeStart = undefined;
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       toast.dismiss();
     }
-  });
+  };
 
-  // Enhanced mobile touch support
-  let startX = 0;
-  let startY = 0;
-  let startTime = 0;
-  
-  document.addEventListener('touchstart', (event) => {
-    const toastElement = (event.target as Element).closest('[data-hot-toast]');
-    if (toastElement) {
-      startX = event.touches[0].clientX;
-      startY = event.touches[0].clientY;
-      startTime = Date.now();
-    }
-  }, { passive: true });
+  document.addEventListener('click', handleClick, true);
+  document.addEventListener('pointerdown', handlePointerDown, true);
+  document.addEventListener('pointerup', handlePointerUp, true);
+  document.addEventListener('pointercancel', handlePointerCancel, true);
+  document.addEventListener('keydown', handleKeyDown);
 
-  document.addEventListener('touchend', (event) => {
-    const toastElement = (event.target as Element).closest('[data-hot-toast]');
-    if (toastElement) {
-      const endX = event.changedTouches[0].clientX;
-      const endY = event.changedTouches[0].clientY;
-      const endTime = Date.now();
-      
-      const deltaX = endX - startX;
-      const deltaY = endY - startY;
-      const deltaTime = endTime - startTime;
-      
-      // Check for swipe right (dismiss) or quick tap
-      if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50 && deltaTime < 300) {
-        // Swipe right to dismiss
-        const toastId = toastElement.getAttribute('data-hot-toast');
-        if (toastId) {
-          toast.dismiss(toastId);
-        } else {
-          toast.dismiss();
-        }
-      } else if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10 && deltaTime < 200) {
-        // Quick tap to dismiss
-        const toastId = toastElement.getAttribute('data-hot-toast');
-        if (toastId) {
-          toast.dismiss(toastId);
-        } else {
-          toast.dismiss();
-        }
-      }
-    }
-  }, { passive: true });
+  return () => {
+    document.removeEventListener('click', handleClick, true);
+    document.removeEventListener('pointerdown', handlePointerDown, true);
+    document.removeEventListener('pointerup', handlePointerUp, true);
+    document.removeEventListener('pointercancel', handlePointerCancel, true);
+    document.removeEventListener('keydown', handleKeyDown);
+  };
 };
 
 export default toastUtils;

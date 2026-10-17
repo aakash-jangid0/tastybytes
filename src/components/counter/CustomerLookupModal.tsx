@@ -15,6 +15,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  notes?: string | null;
 }
 
 interface Order {
@@ -22,12 +23,18 @@ interface Order {
   status: string;
   payment_status: string;
   total_amount: number;
+  subtotal?: number | null;
+  tax?: number | null;
+  discount?: number | null;
   order_type: string;
   payment_method: string;
   created_at: string;
+  updated_at?: string | null;
   customer_name: string;
   customer_phone: string;
-  order_items: OrderItem[];
+  table_number?: string | null;
+  coupon_code?: string | null;
+  order_items: OrderItem[] | null;
 }
 
 interface CustomerResult {
@@ -36,7 +43,7 @@ interface CustomerResult {
   email?: string;
   phone?: string;
   address?: string;
-  created_at: string;
+  created_at: string | null;
   last_visit?: string;
   total_orders: number;
   total_spent: number;
@@ -44,11 +51,24 @@ interface CustomerResult {
   visit_frequency?: string;
   favorite_items?: string[];
   favorite_cuisines?: string[];
+  loyalty_points?: number;
+  order_count?: number;
+  average_order_value?: number;
+  first_order_date?: string;
+  last_order_date?: string;
+  last_login_date?: string;
+  updated_at?: string;
+  avg_order_frequency_days?: number;
+  customer_source?: string;
+  referral_code?: string;
+  language_preference?: string;
+  status?: string;
+  notes?: string;
+  tags?: string[];
   spice_preference?: string;
   preferred_dining_time?: string;
   preferred_payment_method?: string;
   dietary_restrictions?: string[];
-  status?: string;
 }
 
 interface CustomerLookupModalProps {
@@ -59,6 +79,12 @@ interface CustomerLookupModalProps {
 
 type TabKey = 'details' | 'orders' | 'preferences';
 
+const formatCustomerDate = (value?: string | null, pattern = 'dd MMM yyyy, hh:mm a') => {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Not available' : format(date, pattern);
+};
+
 export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer }: CustomerLookupModalProps) {
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -68,6 +94,7 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
   const [realOrderCount, setRealOrderCount] = useState(0);
   const [realTotalSpent, setRealTotalSpent] = useState(0);
   const [notFound, setNotFound] = useState(false);
+  const [lookupError, setLookupError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('details');
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
@@ -90,67 +117,59 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
     setRealOrderCount(0);
     setRealTotalSpent(0);
     setNotFound(false);
+    setLookupError('');
 
     try {
-      // Lookup customer by phone
-      const { data, error } = await supabase
+      const { data: customers, error } = await supabase
         .from('customers')
         .select('*')
         .eq('phone', phoneInput)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
 
-      if (!data) {
+      const foundCustomer = customers?.[0];
+      if (!foundCustomer) {
         setNotFound(true);
-        setSearching(false);
         return;
       }
 
-      setCustomer(data);
-      setActiveTab('details');
-
-      // Fetch recent orders for this customer
-      const { data: orderData, error: orderError } = await supabase
+      const customerOrderFilter = `customer_id.eq.${foundCustomer.id},customer_phone.eq.${phoneInput}`;
+      const [ordersResult, countResult, spentResult] = await Promise.all([
+        supabase
         .from('orders')
         .select(`
-          id, status, payment_status, total_amount, order_type,
-          payment_method, created_at, customer_name, customer_phone,
-          order_items ( id, name, quantity, price )
+          id, status, payment_status, subtotal, tax, discount, total_amount, order_type,
+          payment_method, created_at, updated_at, customer_name, customer_phone,
+          table_number, coupon_code,
+          order_items ( id, name, quantity, price, notes )
         `)
-        .eq('customer_id', data.id)
+        .or(customerOrderFilter)
         .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (orderError) {
-        console.error('Error fetching orders:', orderError);
-      } else {
-        const fetchedOrders = orderData || [];
-        setOrders(fetchedOrders);
-
-        // Calculate real order count and total spent from actual orders
-        const { count, error: countError } = await supabase
+        .limit(20),
+        supabase
           .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('customer_id', data.id);
-
-        if (!countError && count !== null) {
-          setRealOrderCount(count);
-        }
-
-        const { data: spentData, error: spentError } = await supabase
+          .select('id', { count: 'exact', head: true })
+          .or(customerOrderFilter),
+        supabase
           .from('orders')
           .select('total_amount')
-          .eq('customer_id', data.id);
+          .or(customerOrderFilter)
+      ]);
 
-        if (!spentError && spentData) {
-          const totalSpent = spentData.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-          setRealTotalSpent(totalSpent);
-        }
-      }
+      if (ordersResult.error) throw ordersResult.error;
+      if (countResult.error) throw countResult.error;
+      if (spentResult.error) throw spentResult.error;
+
+      setCustomer(foundCustomer);
+      setOrders(ordersResult.data || []);
+      setRealOrderCount(countResult.count ?? 0);
+      setRealTotalSpent((spentResult.data || []).reduce((sum, order) => sum + (order.total_amount || 0), 0));
+      setActiveTab('details');
     } catch (err) {
       console.error('Customer lookup error:', err);
-      toast.error('Failed to search customer');
+      setLookupError(err instanceof Error ? err.message : 'Failed to load complete customer information.');
     } finally {
       setSearching(false);
     }
@@ -176,6 +195,7 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
     setRealOrderCount(0);
     setRealTotalSpent(0);
     setNotFound(false);
+    setLookupError('');
     setActiveTab('details');
     setExpandedOrder(null);
     onClose();
@@ -248,7 +268,7 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -317,6 +337,19 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                 </div>
               )}
 
+              {lookupError && (
+                <div className="m-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+                  <p className="font-medium">Could not load complete customer information.</p>
+                  <p className="mt-1">{lookupError}</p>
+                  <button
+                    onClick={handleSearch}
+                    className="mt-3 rounded-md bg-red-100 px-3 py-1.5 font-medium hover:bg-red-200"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
               {/* Customer found */}
               {customer && (
                 <>
@@ -348,7 +381,7 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">{customer.name}</h3>
                             <p className="text-sm text-gray-500">
-                              Customer since {format(new Date(customer.created_at), 'MMM yyyy')}
+                              Customer since {formatCustomerDate(customer.created_at, 'MMM yyyy')}
                             </p>
                           </div>
                           {customer.loyalty_tier && (
@@ -382,8 +415,60 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                           {customer.last_visit && (
                             <div className="flex items-center gap-2 text-sm">
                               <Clock className="w-4 h-4 text-gray-400" />
-                              <span>Last visit: {format(new Date(customer.last_visit), 'dd MMM yyyy, hh:mm a')}</span>
+                              <span>Last visit: {formatCustomerDate(customer.last_visit)}</span>
                             </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 rounded-lg border border-gray-100 p-3 text-sm sm:grid-cols-2">
+                          {customer.status && (
+                            <p><span className="text-gray-500">Account status:</span> <span className="font-medium capitalize">{customer.status}</span></p>
+                          )}
+                          {customer.customer_source && (
+                            <p><span className="text-gray-500">Customer source:</span> <span className="font-medium capitalize">{customer.customer_source}</span></p>
+                          )}
+                          {customer.first_order_date && (
+                            <p><span className="text-gray-500">First order:</span> <span className="font-medium">{formatCustomerDate(customer.first_order_date)}</span></p>
+                          )}
+                          {customer.last_order_date && (
+                            <p><span className="text-gray-500">Last order:</span> <span className="font-medium">{formatCustomerDate(customer.last_order_date)}</span></p>
+                          )}
+                          {customer.loyalty_points !== undefined && (
+                            <p><span className="text-gray-500">Loyalty points:</span> <span className="font-medium">{customer.loyalty_points}</span></p>
+                          )}
+                          {customer.average_order_value !== undefined && (
+                            <p><span className="text-gray-500">Average order value:</span> <span className="font-medium">₹{Number(customer.average_order_value).toFixed(2)}</span></p>
+                          )}
+                          {customer.avg_order_frequency_days !== undefined && (
+                            <p><span className="text-gray-500">Average visit interval:</span> <span className="font-medium">{customer.avg_order_frequency_days} days</span></p>
+                          )}
+                          {customer.language_preference && (
+                            <p><span className="text-gray-500">Language:</span> <span className="font-medium">{customer.language_preference}</span></p>
+                          )}
+                          {customer.last_login_date && (
+                            <p><span className="text-gray-500">Last login:</span> <span className="font-medium">{formatCustomerDate(customer.last_login_date)}</span></p>
+                          )}
+                          {customer.updated_at && (
+                            <p><span className="text-gray-500">Profile updated:</span> <span className="font-medium">{formatCustomerDate(customer.updated_at)}</span></p>
+                          )}
+                          {customer.referral_code && (
+                            <p><span className="text-gray-500">Referral code:</span> <span className="font-medium">{customer.referral_code}</span></p>
+                          )}
+                          {customer.id && (
+                            <p className="sm:col-span-2 break-all">
+                              <span className="text-gray-500">Customer ID:</span> <span className="font-mono text-xs">{customer.id}</span>
+                            </p>
+                          )}
+                          {customer.tags && customer.tags.length > 0 && (
+                            <p className="sm:col-span-2">
+                              <span className="text-gray-500">Tags:</span>{' '}
+                              <span className="font-medium">{customer.tags.join(', ')}</span>
+                            </p>
+                          )}
+                          {customer.notes && (
+                            <p className="sm:col-span-2">
+                              <span className="text-gray-500">Notes:</span> <span className="font-medium">{customer.notes}</span>
+                            </p>
                           )}
                         </div>
 
@@ -398,6 +483,20 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                             <span className="text-green-500 text-lg font-bold block">₹</span>
                             <p className="text-lg font-bold text-green-700">{realTotalSpent.toFixed(2)}</p>
                             <p className="text-xs text-green-600">Total Spent</p>
+                          </div>
+                          <div className="bg-purple-50 rounded-lg p-3 text-center">
+                            <Award className="w-5 h-5 text-purple-500 mx-auto mb-1" />
+                            <p className="text-lg font-bold text-purple-700">{customer.loyalty_points ?? 0}</p>
+                            <p className="text-xs text-purple-600">Loyalty Points</p>
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-3 text-center">
+                            <span className="text-orange-500 text-lg font-bold block">₹</span>
+                            <p className="text-lg font-bold text-orange-700">
+                              {customer.average_order_value !== undefined
+                                ? Number(customer.average_order_value).toFixed(2)
+                                : realOrderCount > 0 ? (realTotalSpent / realOrderCount).toFixed(2) : '0.00'}
+                            </p>
+                            <p className="text-xs text-orange-600">Average Order</p>
                           </div>
                         </div>
 
@@ -435,7 +534,7 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                                     <div>
                                       <p className="text-sm font-medium">#{order.id.slice(-6)}</p>
                                       <p className="text-xs text-gray-500">
-                                        {format(new Date(order.created_at), 'dd MMM yyyy, hh:mm a')}
+                                        {formatCustomerDate(order.created_at)}
                                       </p>
                                     </div>
                                   </div>
@@ -469,12 +568,22 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
                                           <span className="capitalize">{order.payment_method}</span>
                                           <span>|</span>
                                           <span className="capitalize">{order.payment_status === 'completed' || order.payment_status === 'paid' ? 'Paid' : order.payment_status}</span>
+                                          {order.table_number && <><span>|</span><span>Table {order.table_number}</span></>}
+                                        </div>
+                                        <div className="mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
+                                          {order.subtotal != null && <span>Subtotal: ₹{Number(order.subtotal).toFixed(2)}</span>}
+                                          {order.tax != null && <span>Tax: ₹{Number(order.tax).toFixed(2)}</span>}
+                                          {order.discount != null && <span>Discount: ₹{Number(order.discount).toFixed(2)}</span>}
+                                          {order.coupon_code && <span>Coupon: {order.coupon_code}</span>}
                                         </div>
                                         <div className="space-y-1">
-                                          {order.order_items.map((item) => (
+                                          {(order.order_items || []).map((item) => (
                                             <div key={item.id} className="flex justify-between text-sm">
-                                              <span className="text-gray-700">{item.quantity}x {item.name}</span>
-                                              <span className="text-gray-600">₹{(item.price * item.quantity).toFixed(2)}</span>
+                                              <span className="text-gray-700">
+                                                {item.quantity}x {item.name}
+                                                {item.notes && <span className="ml-1 text-xs text-gray-500">({item.notes})</span>}
+                                              </span>
+                                              <span className="text-gray-600">₹{(Number(item.price) * item.quantity).toFixed(2)}</span>
                                             </div>
                                           ))}
                                         </div>
@@ -581,7 +690,8 @@ export default function CustomerLookupModal({ isOpen, onClose, onSelectCustomer 
 
                         {/* No preferences fallback */}
                         {!customer.favorite_items?.length && !customer.favorite_cuisines?.length &&
-                         !customer.spice_preference && !customer.dietary_restrictions?.length && (
+                         !customer.spice_preference && !customer.preferred_dining_time &&
+                         !customer.preferred_payment_method && !customer.dietary_restrictions?.length && (
                           <div className="text-center py-8 text-gray-500">
                             <Utensils className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                             <p className="font-medium">No preferences yet</p>

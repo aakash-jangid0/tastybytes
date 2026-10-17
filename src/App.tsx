@@ -40,7 +40,7 @@ import DiagnosticsPage from './pages/admin/DiagnosticsPage';
 export default function App() {
   // Initialize global toast dismiss functionality
   useEffect(() => {
-    setupGlobalToastDismiss();
+    return setupGlobalToastDismiss();
   }, []);
 
   return (
@@ -155,8 +155,13 @@ export default function App() {
                   <Route path="categories" element={<CategoryManagement />} />
                   <Route path="support" element={<CustomerSupport />} />
                   <Route path="website" element={<WebsiteSettingsComprehensive />} />
-                  <Route path="diagnostics" element={<DiagnosticsPage />} />
                 </Route>
+
+                <Route path="/admin/diagnostics" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <DiagnosticsPage />
+                  </ProtectedRoute>
+                } />
               </Routes>
             </LenisProvider>
             </Router>

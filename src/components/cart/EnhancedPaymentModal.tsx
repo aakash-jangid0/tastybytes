@@ -13,6 +13,7 @@ interface PaymentOption {
 }
 
 interface PaymentData {
+  [key: string]: unknown;
   orderId?: string;
   paymentId?: string;
   paymentMessage?: string;
@@ -32,7 +33,7 @@ interface EnhancedPaymentModalProps {
   amount: number;
   orderId?: string;
   createOrder?: (paymentMethod?: string) => Promise<string | null>;
-  onPaymentComplete: (paymentMethod?: string, paymentStatus?: PaymentStatus, paymentData?: PaymentData) => void;
+  onPaymentComplete: (paymentMethod?: string, paymentStatus?: PaymentStatus, paymentData?: PaymentData) => void | Promise<void>;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -189,7 +190,7 @@ export default function EnhancedPaymentModal({
           
           // Pass the order ID and payment message in payment data with special flags for cash payments
           console.log('Completing payment with order ID:', paymentOrderId);
-          onPaymentComplete(selectedMethod, 'pending', { 
+          await onPaymentComplete(selectedMethod, 'pending', { 
             orderId: paymentOrderId,
             paymentMessage: paymentMessage,
             skipErrorHandling: true, // Flag to skip error handling for cash payments
@@ -239,12 +240,6 @@ export default function EnhancedPaymentModal({
 
           console.log(`Starting Razorpay payment flow for order: ${paymentOrderId}, amount: ${amount}`);
           
-          toast.loading('Processing payment... (Click to cancel)', { 
-            id: 'payment-processing',
-            duration: 10000,
-            style: { cursor: 'pointer' }
-          });
-          
           // Process the payment using our utility function
           const result = await processRazorpayPayment(
             paymentOrderId,
@@ -256,11 +251,8 @@ export default function EnhancedPaymentModal({
             }
           );
           
-          toast.dismiss('payment-processing');
-          
-          // Handle successful payment
-          toast.success('Online payment successful!');
-          onPaymentComplete('razorpay', 'completed', {
+          // The checkout handler owns the single customer-facing success message.
+          await onPaymentComplete('razorpay', 'completed', {
             paymentId: result.paymentId,
             orderId: result.orderId,
             success: result.success,
@@ -284,11 +276,6 @@ export default function EnhancedPaymentModal({
             toast.error('Payment verification failed. The payment may have been processed. Please check with customer service.', {
               duration: 6000,
               icon: '⚠️',
-            });
-            // Still record the payment as pending so it can be verified manually
-            onPaymentComplete('razorpay', 'pending', {
-              error: errorMessage,
-              orderId: orderId || generatedOrderId
             });
           } else if (errorMessage?.includes('Failed to fetch') || errorMessage?.includes('Network')) {
             toast.error('Network error. Please check your internet connection and try again.', {
