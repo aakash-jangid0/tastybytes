@@ -9,10 +9,9 @@ import CategoryManager from '../../components/admin/CategoryManager';
 import { MenuItem } from '../../types/menu';
 import { Category } from '../../types/category';
 import { supabase } from '../../lib/supabase';
+import { fetchCategories as loadCategories } from '../../services/categoryService';
 import * as LucideIcons from 'lucide-react';
 import { useGuestGuard } from '../../hooks/useGuestGuard';
-
-const API_BASE_URL = 'http://localhost:5000/api';
 
 const preloadImage = (src: string): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -46,13 +45,8 @@ function MenuManagement() {
   });
 
   // Fetch menu items and categories from the database on component mount
-  useEffect(() => {
-    fetchMenuItems();
-    fetchCategories();
-  }, []);
-
   // Function to fetch menu items from the API
-  const fetchMenuItems = async () => {
+  const fetchMenuItems = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -86,29 +80,30 @@ function MenuManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
   
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setDynamicCategories(data);
-        
-        // Set default category for new items if categories exist
-        if (data.length > 0 && !formData.category) {
-          setFormData(prev => ({
-            ...prev,
-            category: data[0].slug
-          }));
-        }
-      } else {
-        console.error('Failed to fetch categories');
+      const data = await loadCategories();
+      setDynamicCategories(data);
+      
+      // Set default category for new items if categories exist
+      if (data.length > 0) {
+        setFormData(prev => prev.category ? prev : {
+          ...prev,
+          category: data[0].slug
+        });
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchMenuItems();
+    fetchCategories();
+  }, [fetchCategories, fetchMenuItems]);
 
   const filteredItems = useMemo(() => {
     return selectedCategory === 'all'

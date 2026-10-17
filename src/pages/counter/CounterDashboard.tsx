@@ -122,7 +122,6 @@ export default function CounterDashboard() {
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          tax_rate: 0.18,
           notes: item.notes || ''
         }));
         

@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Pencil, Trash2, X, Move, Grid } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Move } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
 import { Category } from '../../types/category';
 import IconSelector from './IconSelector';
 import DynamicIcon from '../../components/ui/DynamicIcon';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import {
+  createCategory as insertCategory,
+  deleteCategory as removeCategory,
+  fetchCategories as loadCategories,
+  updateCategory as saveCategory,
+  updateCategoryOrder
+} from '../../services/categoryService';
 
 // Interface is now imported from types/category
 
@@ -28,19 +33,10 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
     icon: 'Grid' // Default icon
   });
 
-  // Fetch categories from the API on component mount
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/categories`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await loadCategories();
       setCategories(data);
       onCategoriesChange(data);
     } catch (error) {
@@ -49,7 +45,11 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onCategoriesChange]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,37 +57,21 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
 
     setIsLoading(true);
     try {
-      const method = editingCategory ? 'PUT' : 'POST';
-      const url = editingCategory 
-        ? `${API_BASE_URL}/categories/${editingCategory.id}` 
-        : `${API_BASE_URL}/categories`;
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          slug: formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-'),
-          display_order: formData.display_order,
-          icon: formData.icon // Include the icon in the payload
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const categoryData = {
+        name: formData.name.trim(),
+        slug: formData.slug.trim() || formData.name.trim().toLowerCase().replace(/\s+/g, '-'),
+        display_order: formData.display_order,
+        icon: formData.icon
+      };
       
       let updatedCategories: Category[];
       if (editingCategory) {
+        const data = await saveCategory(editingCategory.id, categoryData);
         updatedCategories = categories.map(cat => cat.id === editingCategory.id ? data : cat);
         setCategories(updatedCategories);
         toast.success('Category updated successfully');
       } else {
+        const data = await insertCategory(categoryData);
         updatedCategories = [...categories, data];
         setCategories(updatedCategories);
         toast.success('Category added successfully');
@@ -97,9 +81,9 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
       setIsModalOpen(false);
       setEditingCategory(null);
       resetForm();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving category:', error);
-      toast.error(`Failed to save category: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to save category: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -109,13 +93,7 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
     if (window.confirm('Are you sure you want to delete this category? This might affect menu items.')) {
       setIsLoading(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        await removeCategory(id);
 
         const updatedCategories = categories.filter(cat => cat.id !== id);
         setCategories(updatedCategories);
@@ -123,7 +101,7 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
         toast.success('Category deleted successfully');
       } catch (error) {
         console.error('Error deleting category:', error);
-        toast.error('Failed to delete category');
+        toast.error(`Failed to delete category: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setIsLoading(false);
       }
@@ -150,7 +128,7 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
     });
   };
 
-  const handleDragEnd = async (result: any) => {
+  const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
     
     const reordered = Array.from(categories);
@@ -169,21 +147,7 @@ function CategoryManager({ onCategoriesChange }: CategoryManagerProps) {
     // Update display orders in database
     try {
       setIsLoading(true);
-      const updatePromises = updatedCategories.map((cat) => 
-        fetch(`${API_BASE_URL}/categories/${cat.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: cat.name,
-            slug: cat.slug,
-            display_order: cat.display_order
-          }),
-        })
-      );
-      
-      await Promise.all(updatePromises);
+      await updateCategoryOrder(updatedCategories);
       toast.success('Categories reordered successfully');
     } catch (error) {
       console.error('Error updating category order:', error);

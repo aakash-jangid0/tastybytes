@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Pencil, Trash2, X, Move } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { Category } from '../../types/category'; // Import the Category type
+import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
+import { Category } from '../../types/category';
 import IconSelector from '../../components/admin/IconSelector';
 import DynamicIcon from '../../components/ui/DynamicIcon';
 import { useGuestGuard } from '../../hooks/useGuestGuard';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import {
+  createCategory as insertCategory,
+  deleteCategory as removeCategory,
+  fetchCategories as loadCategories,
+  updateCategory as saveCategory,
+  updateCategoryOrder
+} from '../../services/categoryService';
 
 function CategoryManagement() {
   const { isGuest, guardAction } = useGuestGuard();
@@ -23,103 +28,55 @@ function CategoryManagement() {
     icon: 'Grid' // Default icon
   });
 
-  // Fetch categories from the API on component mount
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Check network connectivity first
-      if (!navigator.onLine) {
-        throw new Error('You are offline. Please check your internet connection.');
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/categories`)
-        .catch(error => {
-          throw new Error(`Network error: Failed to connect to server. Please check if the server is running.`);
-        });
-        
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
+      const data = await loadCategories();
       setCategories(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching categories:', error);
-      
-      if (error.message.includes('Failed to connect') || error.message.includes('offline')) {
-        toast.error('Network error: Please check your connection and try again', {
-          duration: 5000,
-        });
-      } else {
-        toast.error(`Failed to load categories: ${error.message}`, {
-          duration: 4000,
-        });
-      }
+      toast.error(`Failed to load categories: ${error instanceof Error ? error.message : String(error)}`, {
+        duration: 4000,
+      });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // Check network connectivity first
-      if (!navigator.onLine) {
-        throw new Error('You are offline. Please check your internet connection.');
-      }
-
-      const method = editingCategory ? 'PUT' : 'POST';
-      const url = editingCategory 
-        ? `${API_BASE_URL}/categories/${editingCategory.id}` 
-        : `${API_BASE_URL}/categories`;
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },        
-        body: JSON.stringify({
-          name: formData.name,
-          slug: formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-'),
-          display_order: formData.display_order,
-          icon: formData.icon // Include the icon in the request
-        }),
-      }).catch(error => {
-        throw new Error(`Network error: Failed to connect to server. Please check if the server is running.`);
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Server error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const categoryData = {
+        name: formData.name.trim(),
+        slug: formData.slug.trim() || formData.name.trim().toLowerCase().replace(/\s+/g, '-'),
+        display_order: formData.display_order,
+        icon: formData.icon
+      };
       
       if (editingCategory) {
-        setCategories(categories.map(cat => cat.id === editingCategory.id ? data : cat));
+        const data = await saveCategory(editingCategory.id, categoryData);
+        setCategories(prev => prev.map(cat => cat.id === editingCategory.id ? data : cat));
         toast.success('Category updated successfully');
       } else {
-        setCategories([...categories, data]);
+        const data = await insertCategory(categoryData);
+        setCategories(prev => [...prev, data]);
         toast.success('Category added successfully');
       }
 
       setIsModalOpen(false);
       setEditingCategory(null);
-      resetForm();    } catch (error: any) {
+      resetForm();
+    } catch (error) {
       console.error('Error saving category:', error);
-      
-      // Show a user-friendly error message
-      if (error.message.includes('Failed to connect') || error.message.includes('offline')) {
-        toast.error('Network error: Please check your connection and try again', {
-          duration: 5000,
-        });
-      } else if (error.message.includes('A category with this name already exists')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('duplicate key') || errorMessage.includes('unique constraint')) {
         toast.error('A category with this name or slug already exists');
       } else {
-        toast.error(`Failed to save category: ${error.message || 'Unknown error'}`);
+        toast.error(`Failed to save category: ${errorMessage || 'Unknown error'}`);
       }
     } finally {
       setIsLoading(false);
@@ -129,33 +86,13 @@ function CategoryManagement() {
     if (confirm('Are you sure you want to delete this category? This might affect menu items.')) {
       setIsLoading(true);
       try {
-        // Check network connectivity first
-        if (!navigator.onLine) {
-          throw new Error('You are offline. Please check your internet connection.');
-        }
-        
-        const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
-          method: 'DELETE',
-        }).catch(error => {
-          throw new Error(`Network error: Failed to connect to server. Please check if the server is running.`);
-        });
+        await removeCategory(id);
 
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-
-        setCategories(categories.filter(cat => cat.id !== id));
+        setCategories(prev => prev.filter(cat => cat.id !== id));
         toast.success('Category deleted successfully');
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error deleting category:', error);
-        
-        if (error.message.includes('Failed to connect') || error.message.includes('offline')) {
-          toast.error('Network error: Please check your connection and try again', {
-            duration: 5000,
-          });
-        } else {
-          toast.error(`Failed to delete category: ${error.message || 'Unknown error'}`);
-        }
+        toast.error(`Failed to delete category: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setIsLoading(false);
       }
@@ -180,7 +117,7 @@ function CategoryManagement() {
     });
   };
 
-  const handleDragEnd = async (result: any) => {
+  const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
     
     const reordered = Array.from(categories);
@@ -198,21 +135,7 @@ function CategoryManagement() {
     // Update display orders in database
     try {
       setIsLoading(true);
-      const updatePromises = updatedCategories.map((cat) => 
-        fetch(`${API_BASE_URL}/categories/${cat.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: cat.name,
-            slug: cat.slug,
-            display_order: cat.display_order
-          }),
-        })
-      );
-      
-      await Promise.all(updatePromises);
+      await updateCategoryOrder(updatedCategories);
       toast.success('Categories reordered successfully');
     } catch (error) {
       console.error('Error updating category order:', error);

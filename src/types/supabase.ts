@@ -82,6 +82,8 @@ export interface Database {
       orders: {
         Row: {
           id: string
+          has_feedback: boolean
+          actual_completion_time: string | null
           user_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
@@ -99,6 +101,8 @@ export interface Database {
         }
         Insert: {
           id?: string
+          has_feedback?: boolean
+          actual_completion_time?: string | null
           user_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
@@ -116,6 +120,8 @@ export interface Database {
         }
         Update: {
           id?: string
+          has_feedback?: boolean
+          actual_completion_time?: string | null
           user_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number

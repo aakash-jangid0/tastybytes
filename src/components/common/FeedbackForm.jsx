@@ -67,7 +67,8 @@ export const FeedbackForm = ({
       onOpenChange(false);
       if (onFeedbackSubmitted) onFeedbackSubmitted();
     } catch (error) {
-      console.error('Error submitting feedback:', error.message);
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error submitting feedback:', message);
       toast.error('Failed to submit feedback. Please try again.');
     } finally {
       setIsSubmitting(false);
